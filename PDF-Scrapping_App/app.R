@@ -13,7 +13,7 @@ library(shiny)
 ui <- fluidPage(
 
     # Application title
-    titlePanel("Old Faithful Geyser Data"),
+    titlePanel("PDF-Scrapping"),
 
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
@@ -48,4 +48,5 @@ server <- function(input, output) {
 }
 
 # Run the application 
-shinyApp(ui = ui, server = server)
+#shinyApp(ui = ui, server = server)
+runApp("PDF-Scrapping_App")
