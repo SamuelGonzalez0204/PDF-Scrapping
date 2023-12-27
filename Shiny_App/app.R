@@ -15,22 +15,31 @@ ui <- fluidPage(
     # Application title
     titlePanel("PDF-Scrapping"),
 
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
+    fluidRow(
+      
+      column(3,
+             mainPanel(
+              img(src = "LogoSACYL.png", height = 40, width = 300),
+             )
+      )
+    ),
+    fluidRow(
+      
+      column(3,
+             fileInput("file", h3("File input"))),
+    ),
+    
+    fluidRow(
+      
+      column(3,
+             h3("Buttons"),
+             actionButton("action", "Action"),
+             br(),
+             br(), 
+             submitButton("Analizar")),
 
-        # Show a plot of the generated distribution
-        mainPanel(
-            img(src = "LogoSACYL.png", height = 40, width = 200),
-            h1("Resultados")
-        )
-    )
+          ),
+        
 )
 
 # Define server logic required to draw a histogram
