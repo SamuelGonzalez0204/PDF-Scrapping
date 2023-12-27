@@ -27,7 +27,8 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-           plotOutput("distPlot")
+            img(src = "LogoSACYL.png", height = 40, width = 200),
+            h1("Resultados")
         )
     )
 )
@@ -47,6 +48,5 @@ server <- function(input, output) {
     })
 }
 
-# Run the application 
+# Run the application
 shinyApp(ui = ui, server = server)
-runApp("Shiny_App")
