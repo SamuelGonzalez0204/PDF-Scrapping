@@ -292,4 +292,3 @@ for (ficheroPDF in ficheros) {
   fusiones <- c(fusiones, variantes)
 }
 
-

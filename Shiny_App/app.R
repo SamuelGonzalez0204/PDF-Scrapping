@@ -48,5 +48,5 @@ server <- function(input, output) {
 }
 
 # Run the application 
-#shinyApp(ui = ui, server = server)
-runApp("PDF-Scrapping_App")
+shinyApp(ui = ui, server = server)
+runApp("Shiny_App")
