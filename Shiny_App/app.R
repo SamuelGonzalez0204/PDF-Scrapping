@@ -13,16 +13,24 @@ library(shiny)
 ui <- fluidPage(
 
     # Application title
-    titlePanel("PDF-Scrapping"),
+  titlePanel(img(src = "LogoSACYL.png", align="left", height = 40, width = 300)),
+
+  br(),
+  h1(
+    "PDF-Scrapping:", span("Shiny app", style = "font-weight: 300"), 
+     style = "font-family: 'Source Sans Pro';
+         text-align: center;
+        background-image: url('texturebg.png');
+        padding: 20px"),
+  br(),
 
     fluidRow(
       
       column(3,
-             mainPanel(
-              img(src = "LogoSACYL.png", height = 40, width = 300),
-             )
+             
       )
     ),
+    
     fluidRow(
       
       column(3,
@@ -32,15 +40,26 @@ ui <- fluidPage(
     fluidRow(
       
       column(3,
+             sidebarPanel(
              h3("Buttons"),
              actionButton("action", "Action"),
              br(),
              br(), 
-             submitButton("Analizar")),
+             submitButton("Analizar"))
+             ),
 
-          ),
+        column(3,
+              selectInput("var", 
+                          label = "Choose a variable to display",
+                          choices = list("Percent White", 
+                                         "Percent Black",
+                                         "Percent Hispanic", 
+                                         "Percent Asian"),
+                          selected = "Percent White"),
+        )
+      )
+    )
         
-)
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
