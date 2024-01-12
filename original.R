@@ -134,6 +134,7 @@ for (i in fecha_Data) {
 }
 print(fechas)
 
+patron <- "(\\d+)\\s* Ensayos clínicos"
 ficheros <- LeerFicherosPDF(rutaEntrada)
 lista_ensayos <- numeric()
 ensayos_finales <- numeric()
@@ -158,6 +159,7 @@ for (i in lista_ensayos) {
 }
 print(ensayos_finales)
 
+patron2 <- "(\\d+)\\s* Tratamientos disponibles"
 ficheros <- LeerFicherosPDF(rutaEntrada)
 lista_tratamientos <- numeric()
 tratamientos_finales <- numeric()
@@ -291,3 +293,23 @@ for (ficheroPDF in ficheros) {
   }
   fusiones <- c(fusiones, variantes)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+observeEvent(input$action, {
+  file_path <- input$file$datapath
+  pdf_content <- pdftools::pdf_text(file_path)
+  output$pdf_content_output <- renderPrint({
+    cat(pdf_content, sep = "\n")
+  })
+})
