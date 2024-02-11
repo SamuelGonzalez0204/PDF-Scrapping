@@ -78,13 +78,13 @@ server <- function(input, output) {
     
     BuscarValor <- function(textoBuscar, lines) {
       Encontrados <- character()
-      cadena <- character()
       valores <- ifelse(grepl(textoBuscar, lines), 1, 0)
       valores <- which(valores == 1)
       array_buscar <- strsplit(textoBuscar, " ")[[1]]
       for (i in valores) {
         array_line <- strsplit(lines[i], " ")[[1]]
         for (j in 1:(length(array_line)-length(array_buscar))){
+          cadena <- character()
           sub_array_line <- array_line[j:(j + length(array_buscar) - 1)]
           if (all(identical(sub_array_line, array_buscar))) {
             añadir <-j+length(array_buscar)
@@ -106,7 +106,7 @@ server <- function(input, output) {
     diagnosticos_dic <- setNames(diagnostico$`NÚMERO DIAGNÓSTICO`, diagnostico$DIAGNÓSTICO)
     for (diagnostico in names(diagnosticos_dic)) {
       valor <- diagnosticos_dic[[diagnostico]]
-      #print(paste(diagnostico, valor))
+      print(paste(diagnostico, valor))
     }
     
     fichero <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Genes.xlsx")
@@ -115,7 +115,7 @@ server <- function(input, output) {
     mutaciones_dic <- setNames(genes$`Número gen`, genes$GEN)
     for (gen in names(mutaciones_dic)) {
       valor <- mutaciones_dic[[gen]]
-      #print(paste(gen, valor))
+      print(paste(gen, valor))
     }
     
     rutaEntrada <- file.path(PathBase, CarpetaEntrada, CarpetaInformes)
@@ -137,26 +137,25 @@ server <- function(input, output) {
       dput(texto_Data)
     })
   
-    #print(NHC_Data)
     textoDiag <- character()
     numeroDiag <- numeric()
     for (i in texto_Data) {
       sinduplicados <- unique(i)
       textoDiag <- c(textoDiag, sinduplicados[1])
     }
-    #print(textoDiag)
+    print(textoDiag)
     for (diagnostico in textoDiag) {
       valor <- diagnosticos_dic[[diagnostico]]
       numeroDiag <- c(numeroDiag, valor)
     }
-    #print(numeroDiag)
+    print(numeroDiag)
   
     NHC <- character()
     for (i in NHC_Data) {
       sinduplicadosNHC <- unique(i)
       NHC <- c(NHC, sinduplicadosNHC[1])
     }
-    #print(NHC)
+    print(NHC)
     lista_resultante <- list()
     elementos_vistos <- character()
     for (sublist in Nbiopsia_Data) {
@@ -169,10 +168,10 @@ server <- function(input, output) {
       }
       lista_resultante <- c(lista_resultante, sublist_sin_duplicados)
     }
-    #print(lista_resultante)
+    print(lista_resultante)
   
     NB_values <- unlist(lista_resultante)
-    #print(NB_values)
+    print(NB_values)
     
     biopsia <- NB_values[seq(3, length(NB_values), 3)]
     B <- "1"
@@ -182,23 +181,23 @@ server <- function(input, output) {
     for (i in biopsia) {
       if (i == "B") {
         Biopsia_solida <- c(Biopsia_solida, B)
-        #print("1")
+        print("1")
       } else if (i == "P") {
         Biopsia_solida <- c(Biopsia_solida, P)
-        #print("2")
+        print("2")
       } else {
         Biopsia_solida <- c(Biopsia_solida, C)
-        #print("3")
+        print("3")
       }
     }
-    #print(Biopsia_solida)
+    print(Biopsia_solida)
   
     fechas <- character()
     for (i in fecha_Data) {
       sinduplicados <- unique(i)
       fechas <- c(fechas, sinduplicados[1])
     }
-    #print(fechas)
+    print(fechas)
     
     patron <- "(\\d+)\\s* Ensayos clínicos"
     ficheros <- file_path
@@ -214,7 +213,7 @@ server <- function(input, output) {
     }
     
     lista_ensayos <- c(lista_ensayos, ensayos)
-    #print(lista_ensayos)
+    print(lista_ensayos)
     for (i in lista_ensayos) {
       if (i == 0) {
         ensayos_finales <- c(ensayos_finales, 0)
@@ -222,7 +221,7 @@ server <- function(input, output) {
         ensayos_finales <- c(ensayos_finales, 1)
       }
     }
-    #print(ensayos_finales)
+    print(ensayos_finales)
     
     patron2 <- "(\\d+)\\s* Tratamientos disponibles"
     ficheros <- file_path
@@ -245,7 +244,7 @@ server <- function(input, output) {
         tratamientos_finales <- c(tratamientos_finales, 1)
       }
     }
-    #print(tratamientos_finales)
+    print(tratamientos_finales)
   
     ficheros <- file_path
   
@@ -255,7 +254,7 @@ server <- function(input, output) {
     pacientes <- substr(paciente, 8, 8)
     numero_paciente <- c(numero_paciente, pacientes)
 
-    #print(numero_paciente)
+    print(numero_paciente)
   
     chip2 <- character()
     resultado <- str_match(ficheros, patron)
@@ -264,7 +263,7 @@ server <- function(input, output) {
       chip2 <- c(chip2, numero_chip)
     }
 
-    #print(chip2)
+    print(chip2)
   
     ficheros <- file_path
     max_mut <- 0
@@ -303,7 +302,7 @@ server <- function(input, output) {
           encontrados2 <- c(encontrados2, mutacion)
         }
       }
-      #print(paste(ficheros, "- Existe:", mutacion))
+      print(paste(ficheros, "- Existe:", mutacion))
       
       if (!benigno) {
         if (!is.na(posicion)){
@@ -324,20 +323,20 @@ server <- function(input, output) {
     frecuencias_totales <- c(frecuencias_totales, lista_frec)
     ########
     
-    #print(frecuencias_totales)
+    print(frecuencias_totales)
     
     mut <- unlist(genes_mut2)
-    #print(mut)
+    print(mut)
     
     num_mutaciones <- sapply(mut, length)
-    #print(num_mutaciones)
+    print(num_mutaciones)
     
     numero_iden <- lapply(mut, function(x) {
       sapply(x, function(gen) {
         mutaciones_dic[[gen]]
       })
     })
-    #print(numero_iden)
+    print(numero_iden)
     
     fusiones <- character()
     lines <- LeerDocumento(ficheros)
