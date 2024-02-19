@@ -2,6 +2,12 @@ install.packages(c("pdftools", "tidyverse", "stringr", "readxl"))
 
 runApp("Shiny_App")
 
+library(tools)
+library(pdftools)
+library(tidyverse)
+library(stringr)
+library(readxl)
+
 CarpetaEntrada <- "INPUT"
 CarpetaDatos <- "DATOS"
 CarpetaInformes <- "INFORMES"
@@ -21,6 +27,7 @@ LeerDocumento <- function(nombreFichero) {
   text <- paste(doc, collapse = "\n")
   return(strsplit(text, "\n")[[1]])
 }
+
 
 BuscarValor <- function(textoBuscar, lines) {
   Encontrados <- character()
@@ -203,16 +210,16 @@ for (i in lista_tratamientos) {
 }
 print(tratamientos_finales)
 
-ficheros <- LeerFicherosPDF(rutaEntrada)
+
 for (ficheroPDF in ficheros) {
-  if (file.exists(ficheroPDF) && file_ext(ficheroPDF) == ".pdf") {
+  if (file.exists(ficheroPDF) && grepl("\\.pdf$", ficheroPDF)) {
     print(ficheroPDF)
   }
 }
 
 numero_paciente <- character()
 for (ficheroPDF in ficheros) {
-  if (file.exists(ficheroPDF) && file_ext(ficheroPDF) == ".pdf") {
+  if (file.exists(ficheroPDF) && grepl("\\.pdf$", ficheroPDF)) {
     fichero1 <- basename(ficheroPDF)
     paciente <- str_remove(fichero1, "\\.pdf$")
     pacientes <- substr(paciente, 8, 8)
@@ -221,12 +228,14 @@ for (ficheroPDF in ficheros) {
 }
 print(numero_paciente)
 
-chip2 <- character()
+chip2 <- c()
 for (ficheroPDF in ficheros) {
-  if (file.exists(ficheroPDF) && file_ext(ficheroPDF) == ".pdf") {
+  if (file.exists(ficheroPDF) && grepl("\\.pdf$", ficheroPDF)) {    
+    patron <- "v(\\d+)_"
     resultado <- str_match(ficheroPDF, patron)
-    if (!is.na(resultado)) {
-      numero_chip <- resultado[2]
+    
+    if (!is.na(resultado[1])) {
+      numero_chip <- resultado[1,2]
       chip2 <- c(chip2, numero_chip)
     }
   }
@@ -237,38 +246,53 @@ ficheros <- LeerFicherosPDF(rutaEntrada)
 max_mut <- 0
 genes_mut2 <- list()
 frecuencias_totales <- list()
+textoLimite <- "1 Basado en la versión ClinVar 20180225"
 patron_frecuencia <- "\\d{2}\\.\\d{2}"
 for (ficheroPDF in ficheros) {
-  nombreFichero <- file.path(rutaEntrada, ficheroPDF)
-  lines <- LeerDocumento(nombreFichero)
+  nombreFichero <- ficheroPDF
+  linesTotal <- LeerDocumento(nombreFichero)
+  lines <- character()
+  for (line in linesTotal){
+    if (line != textoLimite){
+      lines <- c(lines,line)
+    }else{
+      break
+    }
+  }
   total_mut <- 0
   encontrados2 <- character()
   lista_frec <- character()
   for (mutacion in mutaciones) {
-    if (mutacion %in% lines) {
-      posicion <- which(lines == mutacion)
-      if (mutacion == "FGFR4") {
-        if (posicion < length(lines) && lines[posicion + 1] == "p.(P136L)") {
-          next
+    coincidencias <- character()
+    coincidencias <- grepl(mutacion, lines)
+    for (coincidencia in 1:length(coincidencias)){
+      if (coincidencias[coincidencia] == TRUE){
+        posicion <- coincidencia
+      
+        if (mutacion == "FGFR4") {
+          if (posicion < length(lines) && lines[posicion + 1] == "p.(P136L)") {
+            next
+          }else{
+            total_mut <- total_mut + 1
+            encontrados2 <- c(encontrados2, mutacion)
+          }
+      } else {
+          benigno <- FALSE
+          for (a in lines[posicion]) {
+            if ("Benign"==a) {
+              benigno <- TRUE
+            }
+          }
+          if (!benigno) {
+            total_mut <- total_mut + 1
+            encontrados2 <- c(encontrados2, mutacion)
+          }
         }
-      }
-      total_mut <- total_mut + 1
-      encontrados2 <- c(encontrados2, mutacion)
-    } else {
-      benigno <- FALSE
-      for (a in (posicion + 1):(posicion + 10)) {
-        if ("Benign" %in% lines[a]) {
-          benigno <- TRUE
-        }
-      }
-      if (!benigno) {
-        total_mut <- total_mut + 1
-        encontrados2 <- c(encontrados2, mutacion)
       }
     }
     print(paste(nombreFichero, "- Existe:", mutacion))
     if (!benigno) {
-      for (i in lines[(posicion):(posicion + 10)]) {
+      for (i in lines[posicion]) {
         resultado <- str_match(i, patron_frecuencia)
         if (!is.na(resultado)) {
           frec <- resultado[1]
