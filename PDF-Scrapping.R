@@ -241,26 +241,34 @@ for (ficheroPDF in ficheros) {
   }
 }
 print(chip2)
-
+benigno <- FALSE
+resultado <- FALSE
 ficheros <- LeerFicherosPDF(rutaEntrada)
 max_mut <- 0
 genes_mut2 <- list()
+genes_mut_ordenados <- list()
 frecuencias_totales <- list()
+textoInicio<- "Detalles de la variante"
+textoInicio2<-"   Variaciones del número de copias"
 textoLimite <- "1 Basado en la versión ClinVar 20180225"
 patron_frecuencia <- "\\d{2}\\.\\d{2}"
 for (ficheroPDF in ficheros) {
+  inicio <- FALSE
   nombreFichero <- ficheroPDF
   linesTotal <- LeerDocumento(nombreFichero)
   lines <- character()
   for (line in linesTotal){
-    if (line != textoLimite){
+    if (line == textoInicio | line == textoInicio2){
+      inicio <- TRUE
+    }
+    if (line != textoLimite && inicio == TRUE){
       lines <- c(lines,line)
-    }else{
-      break
+    }else if (line == textoLimite){
+      inicio <- FALSE
     }
   }
   total_mut <- 0
-  encontrados2 <- character()
+  encontrados2 <- list()
   lista_frec <- character()
   for (mutacion in mutaciones) {
     coincidencias <- character()
@@ -270,7 +278,15 @@ for (ficheroPDF in ficheros) {
         posicion <- coincidencia
       
         if (mutacion == "FGFR4") {
-          if (posicion < length(lines) && lines[posicion + 1] == "p.(P136L)") {
+          benigno2<-FALSE
+          for (a in strsplit(lines[posicion], " ")[[1]]) {
+            #print(a)
+            if ("p.(P136L)"==a) {
+              benigno2 <- TRUE
+            }
+          }
+          #print(benigno2)
+          if (benigno2) {
             next
           }else{
             total_mut <- total_mut + 1
@@ -278,44 +294,50 @@ for (ficheroPDF in ficheros) {
           }
       } else {
           benigno <- FALSE
-          for (a in lines[posicion]) {
-            if ("Benign"==a) {
+          for (a in strsplit(lines[posicion], " ")[[1]]) {
+            if (grepl("Benign", a)) {
               benigno <- TRUE
             }
           }
           if (!benigno) {
             total_mut <- total_mut + 1
             encontrados2 <- c(encontrados2, mutacion)
+            genes_mut2 <- append(genes_mut2,mutacion)
+            print(paste(nombreFichero, "- Existe:", mutacion))
+            for (i in strsplit(lines[posicion], " ")[[1]]) {
+              resultado <- str_match(i, patron_frecuencia)
+              if (!is.na(resultado)) {
+                frec <- resultado[1]
+                lista_frec <- c(lista_frec, frec)
+              }
+            }
           }
         }
       }
     }
-    print(paste(nombreFichero, "- Existe:", mutacion))
-    if (!benigno) {
-      for (i in lines[posicion]) {
-        resultado <- str_match(i, patron_frecuencia)
-        if (!is.na(resultado)) {
-          frec <- resultado[1]
-          lista_frec <- c(lista_frec, frec)
-        }
-      }
-    }
+    
   }
-  genes_mut2[[gsub("\\\\", "_", ficheroPDF)]] <- encontrados2
+
   if (total_mut > max_mut) {
     max_mut <- total_mut
   }
-  frecuencias_totales <- c(frecuencias_totales, lista_frec)
+  frecuencias_totales <- append(frecuencias_totales, list(lista_frec))
+  genes_mut_ordenados <- append(genes_mut_ordenados, list(genes_mut2))
+  genes_mut2 <- list()
 }
+
 print(frecuencias_totales)
 
-mut <- unlist(genes_mut2)
-print(mut)
+print(genes_mut_ordenados)
 
-num_mutaciones <- sapply(mut, length)
+num_mutaciones<- list()
+
+for (lista in genes_mut_ordenados){
+  num_mutaciones<- c(num_mutaciones, length(lista))
+}
 print(num_mutaciones)
 
-numero_iden <- lapply(mut, function(x) {
+numero_iden <- lapply(genes_mut_ordenados, function(x) {
   sapply(x, function(gen) {
     mutaciones_dic[[gen]]
   })
@@ -324,15 +346,271 @@ print(numero_iden)
 
 fusiones <- character()
 for (ficheroPDF in ficheros) {
-  lines <- LeerDocumento(file.path(rutaEntrada, ficheroPDF))
+  lines <- LeerDocumento(file.path(ficheroPDF))
   variantes <- character()
   for (linea in lines) {
     for (mutacion in mutaciones) {
       patronGen <- paste0("[A-Z0-9]{1,}-", mutacion)
       if (grepl(patronGen, linea)) {
-        variantes <- c(variantes, linea)
+        print(strsplit(linea, " ")[[1]])
+        for (palabra in strsplit(linea, " ")[[1]]){
+          if (grepl(patronGen, palabra)){
+            print(palabra)
+            variantes <- c(variantes, palabra)
+          }
+        }
       }
     }
   }
-  fusiones <- c(fusiones, variantes)
+  fusiones <- append(fusiones, list(variantes))
 }
+print(fusiones)
+
+
+#library(openxlsx)
+
+for (ficheroPDF in ficheros) {
+  nombreFichero <- file.path(ficheroPDF)
+  lines <- LeerDocumento(nombreFichero)
+  inicio <- FALSE
+  lines <- character()
+  for (line in linesTotal){
+    if (line == textoInicio | line == textoInicio2){
+      inicio <- TRUE
+    }
+    if (line != textoLimite && inicio == TRUE){
+      lines <- c(lines,line)
+    }else if (line == textoLimite){
+      inicio <- FALSE
+    }
+  }
+  for (mutacion in mutaciones){
+    coincidencias <- character()
+    coincidencias <- grepl(mutacion, lines)
+    for (coincidencia in 1:length(coincidencias)){
+      if (coincidencias[coincidencia] == TRUE){
+        posicion <- coincidencia
+        
+        for (a in strsplit(lines[posicion], " ")[[1]]) {
+          if (grepl("Pathogeni", a)) {
+            print(paste(nombreFichero, " - Existe: ", mutacion, " - Pathogenic"))
+          }
+        }
+      }
+    }
+  }
+}
+
+patron_frecuencia <- "\\d{2}\\.\\d{2}"
+frecuenciasPato <- list()
+
+for (ficheroPDF in ficheros) {
+  lista_frec <- list()
+  nombreFichero <- file.path(ficheroPDF)
+  lines <- LeerDocumento(nombreFichero)
+  inicio <- FALSE
+  nombreFichero <- ficheroPDF
+  linesTotal <- LeerDocumento(nombreFichero)
+  lines <- character()
+  for (line in linesTotal){
+    if (line == textoInicio | line == textoInicio2){
+      inicio <- TRUE
+    }
+    if (line != textoLimite && inicio == TRUE){
+      lines <- c(lines,line)
+    }else if (line == textoLimite){
+      inicio <- FALSE
+    }
+  }
+  for (mutacion in mutaciones){
+    coincidencias <- character()
+    coincidencias <- grepl(mutacion, lines)
+    for (coincidencia in 1:length(coincidencias)){
+      if (coincidencias[coincidencia] == TRUE){
+        posicion <- coincidencia
+      
+      for (a in strsplit(lines[posicion], " ")[[1]]) {
+        if (grepl("Pathogeni", a)) {
+          print(paste(nombreFichero, " - Existe: ", mutacion, " - Pathogenic"))
+
+          for (i in strsplit(lines[posicion], " ")[[1]]) {
+            resultado <- str_match(i, patron_frecuencia)
+            if (!is.na(resultado)) {
+              frec <- resultado[1]
+              lista_frec <- c(lista_frec, frec)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  frecuenciasPato <- append(frecuenciasPato, list(lista_frec))
+}
+print(frecuenciasPato)
+
+
+patogen <- list()
+mutaciones_pato <- list()
+
+for (ficheroPDF in ficheros) {
+  nombreFichero <- file.path(ficheroPDF)
+  linesTotal <- LeerDocumento(nombreFichero)
+  genpato2 <- list()
+  inicio <- FALSE
+  lines <- character()
+  for (line in linesTotal){
+    if (line == textoInicio | line == textoInicio2){
+      inicio <- TRUE
+    }
+    if (line != textoLimite && inicio == TRUE){
+      lines <- c(lines,line)
+    }else if (line == textoLimite){
+      inicio <- FALSE
+    }
+  }
+  for (mutacion in mutaciones){
+    coincidencias <- character()
+    coincidencias <- grepl(mutacion, lines)
+    for (coincidencia in 1:length(coincidencias)){
+      if (coincidencias[coincidencia] == TRUE){
+        posicion <- coincidencia
+        
+        for (a in strsplit(lines[posicion], " ")[[1]]) {
+          if (grepl("Pathogeni", a)) {
+            genpato2 <- c(genpato2, mutacion)
+          }
+        }
+      }
+    }
+  }
+  
+  patogen[[ficheroPDF]] <- genpato2
+  mutaciones_pato <- append(mutaciones_pato, list(genpato2))
+}
+print(patogen)
+
+print(mutaciones_pato)
+
+numero_iden_pato <- list()
+
+for (i in mutaciones_pato) {
+  valores <- sapply(i, function(gen) ifelse(is.null(mutaciones_dic[[gen]]), 0, mutaciones_dic[[gen]]))
+  numero_iden_pato <- append(numero_iden_pato, list(valores))
+}
+print(numero_iden_pato)
+
+num_mutacionesPato <- list()
+for (lista in numero_iden_pato){
+  num_mutacionesPato <- c(num_mutacionesPato, length(lista))
+}
+print(unlist(num_mutacionesPato))
+
+print(length(chip2))
+
+print(numero_paciente)
+
+print(NHC)
+
+print(length(NB_values))
+
+print(Biopsia_solida)
+
+print(fecha_Data)
+
+print(fechas)
+
+print(texto_Data)
+
+print(textoDiag)
+
+print(numeroDiag)
+
+print(length(unlist(num_mutaciones)))
+
+print(unlist(num_mutacionesPato))
+
+print(genes_mut_ordenados)
+
+print(length(fusiones))
+
+print(frecuencias_totales)
+
+print(frecuenciasPato)
+
+print(length(numero_iden))
+
+print(lista_ensayos)
+
+print(ensayos_finales)
+
+print(lista_tratamientos)
+
+print(tratamientos_finales)
+
+genes_mut_ordenados <- lapply(genes_mut_ordenados, function(x) if(length(x) == 0) NA else x)
+print(length(genes_mut_ordenados))
+frecuencias_totales <- lapply(frecuencias_totales, function(x) if(length(x) == 0) NA else x)
+print(length(frecuencias_totales))
+
+
+T1 <- data.frame('Número de chip' = chip2, 'Número de paciente' = numero_paciente, 'NHC' = NHC, 
+                 'Número de biopsia' = NB_values, 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas)
+print(T1)
+
+T2 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Diagnóstico' = textoDiag, 
+                 'Número del diagnóstico' = numeroDiag)
+print(T2)
+
+T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = genes_mut_ordenados, 
+                 'Número de la mutación específica' = numero_iden, 'Total del número de mutaciones' = unlist(num_mutaciones), 
+                 'Porcentaje de frecuencia alélica (ADN)' = frecuencias_totales, 'Fusiones ID' = fusiones)
+print(T3)
+
+T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = patologicos, 
+                 'Número de la mutación específica' = numero_iden_pato, '% frecuencia alélica' = frecuenciasPato, 
+                 'Total de mutaciones patogénicas' = num_mutacionesPato)
+T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
+                 'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)
+
+tabla_unida <- merge(T1, T2, by = c("Número de chip", "Número de biopsia"))
+print(tabla_unida)
+
+tabla_unida2 <- merge(tabla_unida, T3, by = c("Número de chip", "Número de biopsia"))
+tabla_final <- merge(tabla_unida2, T5, by = c("Número de chip", "Número de biopsia"))
+tabla_unida3 <- merge(tabla_unida, T4, by = c("Número de chip", "Número de biopsia"))
+tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número de chip", "Número de biopsia"))
+
+rutaSalida <- file.path(PathBase, CarpetaSalida)
+if (!file.exists(rutaSalida)) {
+  dir.create(rutaSalida)
+}
+
+rutaResultados <- file.path(rutaSalida, CarpetaResultados)
+if (!file.exists(rutaResultados)) {
+  dir.create(rutaResultados)
+}
+
+fichero <- file.path(rutaSalida, "TablaPato.xlsx")
+write.xlsx(tabla_final_pato, fichero)
+
+fichero <- file.path(rutaSalida, "TablaGeneral.xlsx")
+write.xlsx(tabla_final, fichero)
+
+fragmentos <- split(tabla_final, rep(1:(nrow(tabla_final) %/% 80 + 1), each = 80, length.out = nrow(tabla_final)))
+for (i in seq_along(fragmentos)) {
+  nombre_archivo <- paste0("tabla_final", i, ".xlsx")
+  ruta_archivo <- file.path(rutaResultados, nombre_archivo)
+  write.xlsx(fragmentos[[i]], ruta_archivo, row.names = FALSE)
+  cat("Archivo", nombre_archivo, "guardado correctamente.\n")
+}
+
+fragmentos <- split(tabla_final_pato, rep(1:(nrow(tabla_final_pato) %/% 80 + 1), each = 80, length.out = nrow(tabla_final_pato)))
+for (i in seq_along(fragmentos)) {
+  nombre_archivo <- paste0("patogenicos_", i, ".xlsx")
+  ruta_archivo <- file.path(rutaResultados, nombre_archivo)
+  write.xlsx(fragmentos[[i]], ruta_archivo, row.names = FALSE)
+  cat("Archivo", nombre_archivo, "guardado correctamente.\n")
+}
+
+
