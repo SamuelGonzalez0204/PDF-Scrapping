@@ -1,4 +1,4 @@
-install.packages(c("pdftools", "tidyverse", "stringr", "readxl"))
+install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx", "shinyFiles"))
 
 runApp("Shiny_App")
 
@@ -7,6 +7,7 @@ library(pdftools)
 library(tidyverse)
 library(stringr)
 library(readxl)
+library(xlsx)
 
 CarpetaEntrada <- "INPUT"
 CarpetaDatos <- "DATOS"
@@ -72,6 +73,7 @@ for (gen in names(mutaciones_dic)) {
 
 rutaEntrada <- file.path(PathBase, CarpetaEntrada, CarpetaInformes)
 ficheros <- LeerFicherosPDF(rutaEntrada)
+print(ficheros)
 NHC_Data <- list()
 Nbiopsia_Data <- list()
 fecha_Data <- list()
@@ -367,7 +369,7 @@ for (ficheroPDF in ficheros) {
 print(fusiones)
 
 
-#library(openxlsx)
+
 
 for (ficheroPDF in ficheros) {
   nombreFichero <- file.path(ficheroPDF)
@@ -532,13 +534,13 @@ print(unlist(num_mutacionesPato))
 
 print(genes_mut_ordenados)
 
-print(length(fusiones))
+print(fusiones)
 
 print(frecuencias_totales)
 
 print(frecuenciasPato)
 
-print(length(numero_iden))
+print(numero_iden)
 
 print(lista_ensayos)
 
@@ -552,6 +554,14 @@ genes_mut_ordenados <- lapply(genes_mut_ordenados, function(x) if(length(x) == 0
 print(length(genes_mut_ordenados))
 frecuencias_totales <- lapply(frecuencias_totales, function(x) if(length(x) == 0) NA else x)
 print(length(frecuencias_totales))
+fusiones <- lapply(fusiones, function(x) if(length(x) == 0) NA else x)
+print(fusiones)
+numero_iden <- lapply(numero_iden, function(x) if(length(x) == 0) NA else x)
+mutaciones_pato <- lapply(mutaciones_pato, function(x) if(length(x) == 0) NA else x)
+frecuenciasPato <- lapply(frecuenciasPato, function(x) if(length(x) == 0) NA else x)
+numero_iden_pato <- lapply(numero_iden_pato, function(x) if(length(x) == 0) NA else x)
+
+
 
 
 T1 <- data.frame('Número de chip' = chip2, 'Número de paciente' = numero_paciente, 'NHC' = NHC, 
@@ -564,22 +574,25 @@ print(T2)
 
 T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = genes_mut_ordenados, 
                  'Número de la mutación específica' = numero_iden, 'Total del número de mutaciones' = unlist(num_mutaciones), 
-                 'Porcentaje de frecuencia alélica (ADN)' = frecuencias_totales, 'Fusiones ID' = fusiones)
+                 'Porcentaje de frecuencia alélica (ADN)' = frecuencias_totales, stringsAsFactors = FALSE)
 print(T3)
 
-T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = patologicos, 
+T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = mutaciones_pato, 
                  'Número de la mutación específica' = numero_iden_pato, '% frecuencia alélica' = frecuenciasPato, 
                  'Total de mutaciones patogénicas' = num_mutacionesPato)
+print(T4)
 T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
                  'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)
 
-tabla_unida <- merge(T1, T2, by = c("Número de chip", "Número de biopsia"))
+
+tabla_unida <- merge(T1, T2, by = c("Número.de.chip", "Número.de.biopsia"))
 print(tabla_unida)
 
-tabla_unida2 <- merge(tabla_unida, T3, by = c("Número de chip", "Número de biopsia"))
-tabla_final <- merge(tabla_unida2, T5, by = c("Número de chip", "Número de biopsia"))
-tabla_unida3 <- merge(tabla_unida, T4, by = c("Número de chip", "Número de biopsia"))
-tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número de chip", "Número de biopsia"))
+tabla_unida2 <- merge(tabla_unida, T3, by = c("Número.de.chip", "Número.de.biopsia"))
+print(tabla_unida2)
+tabla_final <- merge(tabla_unida2, T5, by = c("Número.de.chip", "Número.de.biopsia"))
+tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))
+tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
 
 rutaSalida <- file.path(PathBase, CarpetaSalida)
 if (!file.exists(rutaSalida)) {
