@@ -1,4 +1,4 @@
-install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx", "shinyFiles"))
+install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx"))
 
 runApp("Shiny_App")
 
@@ -54,30 +54,20 @@ BuscarValor <- function(textoBuscar, lines) {
   return(Encontrados)
 }
 
-fichero <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Diagnostico.xlsx")
-diagnostico <- read_excel(fichero)
+ficheroDiagnostico <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Diagnostico.xlsx")
+diagnostico <- read_excel(ficheroDiagnostico)
 diagnosticos_dic <- setNames(diagnostico$`NÚMERO DIAGNÓSTICO`, diagnostico$DIAGNÓSTICO)
-for (diagnostico in names(diagnosticos_dic)) {
-  valor <- diagnosticos_dic[[diagnostico]]
-  print(paste(diagnostico, valor))
-}
 
-fichero <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Genes.xlsx")
-genes <- read_excel(fichero)
+ficheroGenes <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Genes.xlsx")
+genes <- read_excel(ficheroGenes)
 mutaciones <- unique(genes$GEN)
 mutaciones_dic <- setNames(genes$`Número gen`, genes$GEN)
-for (gen in names(mutaciones_dic)) {
-  valor <- mutaciones_dic[[gen]]
-  print(paste(gen, valor))
-}
 
 rutaEntrada <- file.path(PathBase, CarpetaEntrada, CarpetaInformes)
 ficheros <- LeerFicherosPDF(rutaEntrada)
-print(ficheros)
-NHC_Data <- list()
-Nbiopsia_Data <- list()
-fecha_Data <- list()
-texto_Data <- list()
+
+NHC_Data <- Nbiopsia_Data <- fecha_Data <- texto_Data <- list()
+
 for (ficheroPDF in ficheros) {
   lines <- LeerDocumento(ficheroPDF)
   NHC_Data[[length(NHC_Data) + 1]] <- BuscarValor("NHC:", lines)
@@ -85,79 +75,39 @@ for (ficheroPDF in ficheros) {
   fecha_Data[[length(fecha_Data) + 1]] <- BuscarValor("Fecha:", lines)
   texto_Data[[length(texto_Data) + 1]] <- BuscarValor("de la muestra:", lines)
 }
-print(NHC_Data)
-print(Nbiopsia_Data)
-print(fecha_Data)
-print(texto_Data)
 
 textoDiag <- character()
 numeroDiag <- numeric()
-for (i in texto_Data) {
-  sinduplicados <- unique(i)
-  textoDiag <- c(textoDiag, sinduplicados[1])
-}
-print(textoDiag)
+
+textoDiag <- sapply(texto_Data, function(x) unique(x)[1])
+
 for (diagnostico in textoDiag) {
   valor <- diagnosticos_dic[[diagnostico]]
   numeroDiag <- c(numeroDiag, valor)
 }
-print(numeroDiag)
 
 NHC <- character()
-for (i in NHC_Data) {
-  sinduplicadosNHC <- unique(i)
-  NHC <- c(NHC, sinduplicadosNHC[1])
-}
-print(NHC)
+NHC <- sapply(NHC_Data, function(x) unique(x)[1])
 
-lista_resultante <- list()
-elementos_vistos <- character()
-for (sublist in Nbiopsia_Data) {
-  sublist_sin_duplicados <- character()
-  for (elemento in sublist) {
-    if (!(elemento %in% elementos_vistos)) {
-      sublist_sin_duplicados <- c(sublist_sin_duplicados, elemento)
-    }
-    elementos_vistos <- c(elementos_vistos, elemento)
-  }
-  lista_resultante <- c(lista_resultante, sublist_sin_duplicados)
-}
-print(lista_resultante)
+lista_resultante <- lapply(Nbiopsia_Data, function(sublist) {
+  sublist_sin_duplicados <- sublist[!duplicated(sublist)]
+  sublist_sin_duplicados
+})
 
 NB_values <- unlist(lista_resultante)
-print(NB_values)
 
 biopsia<- character()
-for (i in NB_values){
-  caracter <- substr(i, 3, 3)
-  biopsia <- c(biopsia, caracter)
-}
-  
-print(biopsia)
+biopsia<- sapply(lista_resultante, function(x) substr(x, 3,3))
+
 B <- "1"
 C <- "3"
 P <- "2"
 Biopsia_solida <- character()
-for (i in biopsia) {
-  if (i == "B") {
-    Biopsia_solida <- c(Biopsia_solida, B)
-    print("1")
-  } else if (i == "P") {
-    Biopsia_solida <- c(Biopsia_solida, P)
-    print("2")
-  } else {
-    Biopsia_solida <- c(Biopsia_solida, C)
-    print("3")
-  }
-}
-print(Biopsia_solida)
+Biopsia_solida <- ifelse(biopsia == "B", B,
+                         ifelse(biopsia == "P", P, C))
 
 fechas <- character()
-for (i in fecha_Data) {
-  sinduplicados <- unique(i)
-  fechas <- c(fechas, sinduplicados[1])
-}
-print(fechas)
+fechas <- sapply(fecha_Data, function(x) unique(x)[1])
 
 patron <- "(\\d+)\\s* Ensayos clínicos"
 ficheros <- LeerFicherosPDF(rutaEntrada)
@@ -224,6 +174,7 @@ for (ficheroPDF in ficheros) {
   if (file.exists(ficheroPDF) && grepl("\\.pdf$", ficheroPDF)) {
     fichero1 <- basename(ficheroPDF)
     paciente <- str_remove(fichero1, "\\.pdf$")
+    print(paciente)
     pacientes <- substr(paciente, 8, 8)
     numero_paciente <- c(numero_paciente, pacientes)
   }
@@ -304,7 +255,7 @@ for (ficheroPDF in ficheros) {
           if (!benigno) {
             total_mut <- total_mut + 1
             encontrados2 <- c(encontrados2, mutacion)
-            genes_mut2 <- append(genes_mut2,mutacion)
+            genes_mut2 <- c(genes_mut2,mutacion)
             print(paste(nombreFichero, "- Existe:", mutacion))
             for (i in strsplit(lines[posicion], " ")[[1]]) {
               resultado <- str_match(i, patron_frecuencia)
@@ -323,8 +274,8 @@ for (ficheroPDF in ficheros) {
   if (total_mut > max_mut) {
     max_mut <- total_mut
   }
-  frecuencias_totales <- append(frecuencias_totales, list(lista_frec))
-  genes_mut_ordenados <- append(genes_mut_ordenados, list(genes_mut2))
+  frecuencias_totales <- c(frecuencias_totales, list(lista_frec))
+  genes_mut_ordenados <- c(genes_mut_ordenados, list(unlist(genes_mut2)))
   genes_mut2 <- list()
 }
 
@@ -339,11 +290,15 @@ for (lista in genes_mut_ordenados){
 }
 print(num_mutaciones)
 
-numero_iden <- lapply(genes_mut_ordenados, function(x) {
-  sapply(x, function(gen) {
-    mutaciones_dic[[gen]]
-  })
-})
+numero_iden<-list()
+añadir <- list()
+for (i in genes_mut_ordenados){
+  for (gen in i){
+    añadir <- c(añadir, mutaciones_dic[[gen]])
+  }
+  numero_iden <- c(numero_iden, list(unlist(añadir)))
+  añadir <- list()
+}
 print(numero_iden)
 
 fusiones <- character()
@@ -447,7 +402,7 @@ for (ficheroPDF in ficheros) {
       }
     }
   }
-  frecuenciasPato <- append(frecuenciasPato, list(lista_frec))
+  frecuenciasPato <- append(frecuenciasPato, list(unlist(lista_frec)))
 }
 print(frecuenciasPato)
 
@@ -528,7 +483,7 @@ print(textoDiag)
 
 print(numeroDiag)
 
-print(length(unlist(num_mutaciones)))
+print(unlist(num_mutaciones))
 
 print(unlist(num_mutacionesPato))
 
@@ -563,8 +518,7 @@ numero_iden_pato <- lapply(numero_iden_pato, function(x) if(length(x) == 0) NA e
 
 
 
-
-T1 <- data.frame('Número de chip' = chip2, 'Número de paciente' = numero_paciente, 'NHC' = NHC, 
+T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
                  'Número de biopsia' = NB_values, 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas)
 print(T1)
 
@@ -572,23 +526,23 @@ T2 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'D
                  'Número del diagnóstico' = numeroDiag)
 print(T2)
 
-T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = genes_mut_ordenados, 
-                 'Número de la mutación específica' = numero_iden, 'Total del número de mutaciones' = unlist(num_mutaciones), 
-                 'Porcentaje de frecuencia alélica (ADN)' = frecuencias_totales, stringsAsFactors = FALSE)
+T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = I(genes_mut_ordenados), 
+                 'Número de la mutación específica' = I(numero_iden), 'Total del número de mutaciones' = unlist(num_mutaciones), 
+                 'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales))
 print(T3)
 
-T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = mutaciones_pato, 
-                 'Número de la mutación específica' = numero_iden_pato, '% frecuencia alélica' = frecuenciasPato, 
-                 'Total de mutaciones patogénicas' = num_mutacionesPato)
+T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = I(mutaciones_pato), 
+                 'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato), 
+                 'Total de mutaciones patogénicas' = I(num_mutacionesPato))
 print(T4)
 T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
                  'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)
 
 
-tabla_unida <- merge(T1, T2, by = c("Número.de.chip", "Número.de.biopsia"))
+tabla_unida <- merge(T1, T2, by = c("Número.de.chip", "Número.de.biopsia"), all=TRUE)
 print(tabla_unida)
 
-tabla_unida2 <- merge(tabla_unida, T3, by = c("Número.de.chip", "Número.de.biopsia"))
+tabla_unida2 <- merge(tabla_unida, T3, by = c("Número.de.chip", "Número.de.biopsia"), all=TRUE)
 print(tabla_unida2)
 tabla_final <- merge(tabla_unida2, T5, by = c("Número.de.chip", "Número.de.biopsia"))
 tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))

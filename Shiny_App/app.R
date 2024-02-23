@@ -10,7 +10,7 @@
 # Define UI for application that draws a histogram
 
 library(shiny)
-library(shinyFiles)
+#library(shinyFiles)
 
 ui <- fluidPage(
   
@@ -35,15 +35,27 @@ ui <- fluidPage(
       submitButton("Leer"),
 
     ),
+    column(3,
+        selectInput("var", 
+        label = "Choose a variable to display",
+        selectInput("select", label = h3("Select box"), 
+                    choices = list("texto_Data" = 1, "genes_mut_ordenados" = 2, "numero_iden" = 3), 
+                    selected = 1),
+        ),
+    ),
+  ),
     
     mainPanel(
-      tableOutput("pdf_content_output"),
-      tableOutput("pdf_content_output2"),
-      tableOutput("pdf_content_output3"),
-      tableOutput("pdf_content_output4"),
-      tableOutput("pdf_content_output5")
+      verbatimTextOutput("value"),
+      tabsetPanel(
+        id = "tabset",
+        tabPanel("panel 1", uiOutput("pdf_content_output")),
+        tabPanel("panel 2", uiOutput("pdf_content_output2")),
+        tabPanel("panel 3", uiOutput("pdf_content_output3")),
+        tabPanel("panel 4", uiOutput("pdf_content_output4")),
+        tabPanel("panel 5", uiOutput("pdf_content_output5"))
+      )
     )
-  )
 )
         
 
@@ -632,40 +644,62 @@ server <- function(input, output) {
     print("_________________________________________________")
     T1 <- data.frame('Número de chip' = chip2, 'Número de paciente' = numero_paciente, 'NHC' = NHC, 
                      'Número de biopsia' = NB_values, 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas)
+    print("_________________________________")
+    print("T1")
     print(T1)
     
     T2 <- data.frame('Número de chip' = chip2, 'Número de paciente' = numero_paciente, 'Diagnóstico' = textoDiag, 
                      'Número del diagnóstico' = numeroDiag)
+    print("_________________________________")
+    print("T2")
     print(T2)
     
-    
-    T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = genes_mut_ordenados, 
-                     'Número de la mutación específica' = numero_iden, 'Total del número de mutaciones' = unlist(num_mutaciones), 
-                     'Porcentaje de frecuencia alélica (ADN)' = frecuencias_totales, stringsAsFactors = FALSE)
-    #Falta Fusiones en T3
+    T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = I(genes_mut_ordenados), 
+                     'Número de la mutación específica' = I(numero_iden), 'Total del número de mutaciones' = unlist(num_mutaciones), 
+                     'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales))
+    print("_________________________________")
+    print("T3")
     print(T3)
     
-    T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = mutaciones_pato, 
-                     'Número de la mutación específica' = numero_iden_pato, '% frecuencia alélica' = frecuenciasPato, 
-                     'Total de mutaciones patogénicas' = num_mutacionesPato)
+    T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = I(mutaciones_pato), 
+                     'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato), 
+                     'Total de mutaciones patogénicas' = I(num_mutacionesPato))
+    print("_________________________________")
+    print("T4")
     print(T4)
-    
     T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
                      'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)
+    print("_________________________________")
+    print("T5")
     print(T5)
     
-    
     tabla_unida <- merge(T1, T2, by = c("Número.de.chip", "Número.de.paciente"))
+    print(1)
     tabla_unida2 <- merge(tabla_unida, T3, by = c("Número.de.chip", "Número.de.biopsia"))
+    print(1)
     tabla_final <- merge(tabla_unida2, T5, by = c("Número.de.chip", "Número.de.biopsia"))
+    print(1)
     tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))
+    print(1)
     tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
+    print(1)
     
-    output$pdf_content_output <- renderTable(tabla_unida)
-    output$pdf_content_output2 <- renderTable(tabla_unida2)
-    output$pdf_content_output3 <- renderTable(tabla_final)
-    output$pdf_content_output4 <- renderTable(tabla_unida3)
-    output$pdf_content_output5 <- renderTable(tabla_final_pato)
+
+    output$pdf_content_output <- renderUI({renderTable({tabla_unida})})
+    output$pdf_content_output2 <- renderUI({renderTable({tabla_unida2})})
+    output$pdf_content_output3 <- renderUI({renderTable({tabla_final})})
+    output$pdf_content_output4 <- renderUI({renderTable({tabla_unida3})})
+    output$pdf_content_output5 <- renderUI({renderTable({tabla_final_pato})})
+    
+
+    
+    output$panel <- renderText({paste("Panel actual: ", input$tabset)})
+    
+    #function(input, output) {
+     # output$value <- renderPrint({ input$select })
+    #}
+    
+    
 
   })
 }
