@@ -205,7 +205,7 @@ textoInicio<- "Detalles de la variante"
 textoInicio2<-"   Variaciones del número de copias"
 textoLimite <- "1 Basado en la versión ClinVar 20180225"
 patron_frecuencia <- "\\d{2}\\.\\d{2}"
-for (ficheroPDF in ficheros) {
+for (ficheroPDF in ficheros[1]) {
   inicio <- FALSE
   nombreFichero <- ficheroPDF
   linesTotal <- LeerDocumento(nombreFichero)
@@ -220,6 +220,7 @@ for (ficheroPDF in ficheros) {
       inicio <- FALSE
     }
   }
+  print(lines)
   total_mut <- 0
   encontrados2 <- list()
   lista_frec <- character()
@@ -359,10 +360,13 @@ for (ficheroPDF in ficheros) {
 }
 
 patron_frecuencia <- "\\d{2}\\.\\d{2}"
+patron_cambio <-"\\(.*?\\)"
 frecuenciasPato <- list()
+cambiosPato <- list()
 
 for (ficheroPDF in ficheros) {
   lista_frec <- list()
+  lista_cambio <- list()
   nombreFichero <- file.path(ficheroPDF)
   lines <- LeerDocumento(nombreFichero)
   inicio <- FALSE
@@ -392,9 +396,14 @@ for (ficheroPDF in ficheros) {
 
           for (i in strsplit(lines[posicion], " ")[[1]]) {
             resultado <- str_match(i, patron_frecuencia)
+            resultado2 <- str_match(i, patron_cambio)
             if (!is.na(resultado)) {
               frec <- resultado[1]
               lista_frec <- c(lista_frec, frec)
+              }
+            if (!is.na(resultado2)) {
+              cambio <- resultado2[1]
+              lista_cambio <- c(lista_cambio, cambio)
               }
             }
           }
@@ -403,9 +412,10 @@ for (ficheroPDF in ficheros) {
     }
   }
   frecuenciasPato <- append(frecuenciasPato, list(unlist(lista_frec)))
+  cambiosPato<- append(cambiosPato, list(unlist(lista_cambio)))
 }
 print(frecuenciasPato)
-
+print(cambiosPato)
 
 patogen <- list()
 mutaciones_pato <- list()
