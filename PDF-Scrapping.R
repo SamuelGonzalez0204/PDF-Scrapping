@@ -1,5 +1,5 @@
 install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx"))
-
+install.packages("DT", repos = "http://cran.us.r-project.org")
 runApp("Shiny_App")
 
 library(tools)
@@ -203,9 +203,9 @@ genes_mut_ordenados <- list()
 frecuencias_totales <- list()
 textoInicio<- "Detalles de la variante"
 textoInicio2<-"   Variaciones del número de copias"
-textoLimite <- "1 Basado en la versión ClinVar 20180225"
+textoLimite <- "1 Basado en la versión ClinVar"
 patron_frecuencia <- "\\d{2}\\.\\d{2}"
-for (ficheroPDF in ficheros[1]) {
+for (ficheroPDF in ficheros) {
   inicio <- FALSE
   nombreFichero <- ficheroPDF
   linesTotal <- LeerDocumento(nombreFichero)
@@ -214,13 +214,12 @@ for (ficheroPDF in ficheros[1]) {
     if (line == textoInicio | line == textoInicio2){
       inicio <- TRUE
     }
-    if (line != textoLimite && inicio == TRUE){
+    if (!grepl(textoLimite, line) && inicio == TRUE){
       lines <- c(lines,line)
-    }else if (line == textoLimite){
+    }else if (grepl(textoLimite, line)){
       inicio <- FALSE
     }
   }
-  print(lines)
   total_mut <- 0
   encontrados2 <- list()
   lista_frec <- character()
@@ -308,12 +307,10 @@ for (ficheroPDF in ficheros) {
   variantes <- character()
   for (linea in lines) {
     for (mutacion in mutaciones) {
-      patronGen <- paste0("[A-Z0-9]{1,}-", mutacion)
+      patronGen <-paste0(mutacion, "\\.[A-Za-z0-9]+\\.[A-Za-z0-9]+")
       if (grepl(patronGen, linea)) {
-        print(strsplit(linea, " ")[[1]])
         for (palabra in strsplit(linea, " ")[[1]]){
           if (grepl(patronGen, palabra)){
-            print(palabra)
             variantes <- c(variantes, palabra)
           }
         }
@@ -525,7 +522,7 @@ numero_iden <- lapply(numero_iden, function(x) if(length(x) == 0) NA else x)
 mutaciones_pato <- lapply(mutaciones_pato, function(x) if(length(x) == 0) NA else x)
 frecuenciasPato <- lapply(frecuenciasPato, function(x) if(length(x) == 0) NA else x)
 numero_iden_pato <- lapply(numero_iden_pato, function(x) if(length(x) == 0) NA else x)
-
+cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
 
 
 T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
@@ -538,12 +535,12 @@ print(T2)
 
 T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = I(genes_mut_ordenados), 
                  'Número de la mutación específica' = I(numero_iden), 'Total del número de mutaciones' = unlist(num_mutaciones), 
-                 'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales))
+                 'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales), 'Fusiones ID' = I(fusiones))
 print(T3)
 
 T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = I(mutaciones_pato), 
-                 'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato), 
-                 'Total de mutaciones patogénicas' = I(num_mutacionesPato))
+                 'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato),
+                 'Cambios' = I(cambiosPato), 'Total de mutaciones patogénicas' = I(num_mutacionesPato))
 print(T4)
 T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
                  'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)

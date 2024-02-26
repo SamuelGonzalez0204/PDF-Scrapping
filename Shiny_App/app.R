@@ -49,11 +49,11 @@ ui <- fluidPage(
       verbatimTextOutput("value"),
       tabsetPanel(
         id = "tabset",
-        tabPanel("panel 1", uiOutput("pdf_content_output")),
-        tabPanel("panel 2", uiOutput("pdf_content_output2")),
-        tabPanel("panel 3", uiOutput("pdf_content_output3")),
-        tabPanel("panel 4", uiOutput("pdf_content_output4")),
-        tabPanel("panel 5", uiOutput("pdf_content_output5"))
+        tabPanel("panel 1", DTOutput("pdf_content_output")),
+        tabPanel("panel 2", DTOutput("pdf_content_output2")),
+        tabPanel("panel 3", DTOutput("pdf_content_output3")),
+        tabPanel("panel 4", DTOutput("pdf_content_output4")),
+        tabPanel("panel 5", DTOutput("pdf_content_output5"))
       )
     )
 )
@@ -70,6 +70,7 @@ server <- function(input, output) {
     library(tidyverse)
     library(stringr)
     library(readxl)
+    library(DT)
     
     CarpetaEntrada <- "INPUT"
     CarpetaDatos <- "DATOS"
@@ -336,7 +337,7 @@ server <- function(input, output) {
     frecuencias_totales <- list()
     textoInicio<- "Detalles de la variante"
     textoInicio2<-"   Variaciones del número de copias"
-    textoLimite <- "1 Basado en la versión ClinVar 20180225"
+    textoLimite <- "1 Basado en la versión ClinVar"
     patron_frecuencia <- "\\d{2}\\.\\d{2}"
     for (ficheroPDF in ficheros) {
       inicio <- FALSE
@@ -347,9 +348,9 @@ server <- function(input, output) {
         if (line == textoInicio | line == textoInicio2){
           inicio <- TRUE
         }
-        if (line != textoLimite && inicio == TRUE){
+        if (!grepl(textoLimite, line) && inicio == TRUE){
           lines <- c(lines,line)
-        }else if (line == textoLimite){
+        }else if (grepl(textoLimite, line)){
           inicio <- FALSE
         }
       }
@@ -436,12 +437,10 @@ server <- function(input, output) {
       variantes <- character()
       for (linea in lines) {
         for (mutacion in mutaciones) {
-          patronGen <- paste0("[A-Z0-9]{1,}-", mutacion)
+          patronGen <-paste0(mutacion, "\\.[A-Za-z0-9]+\\.[A-Za-z0-9]+")
           if (grepl(patronGen, linea)) {
-            print(strsplit(linea, " ")[[1]])
             for (palabra in strsplit(linea, " ")[[1]]){
               if (grepl(patronGen, palabra)){
-                print(palabra)
                 variantes <- c(variantes, palabra)
               }
             }
@@ -488,10 +487,13 @@ server <- function(input, output) {
     }
     
     patron_frecuencia <- "\\d{2}\\.\\d{2}"
+    patron_cambio <-"\\(.*?\\)"
     frecuenciasPato <- list()
+    cambiosPato <- list()
     
     for (ficheroPDF in ficheros) {
       lista_frec <- list()
+      lista_cambio <- list()
       nombreFichero <- file.path(ficheroPDF)
       lines <- LeerDocumento(nombreFichero)
       inicio <- FALSE
@@ -521,9 +523,14 @@ server <- function(input, output) {
                 
                 for (i in strsplit(lines[posicion], " ")[[1]]) {
                   resultado <- str_match(i, patron_frecuencia)
+                  resultado2 <- str_match(i, patron_cambio)
                   if (!is.na(resultado)) {
                     frec <- resultado[1]
                     lista_frec <- c(lista_frec, frec)
+                  }
+                  if (!is.na(resultado2)) {
+                    cambio <- resultado2[1]
+                    lista_cambio <- c(lista_cambio, cambio)
                   }
                 }
               }
@@ -531,7 +538,8 @@ server <- function(input, output) {
           }
         }
       }
-      frecuenciasPato <- append(frecuenciasPato, list(lista_frec))
+      frecuenciasPato <- append(frecuenciasPato, list(unlist(lista_frec)))
+      cambiosPato<- append(cambiosPato, list(unlist(lista_cambio)))
     }
     print(frecuenciasPato)
     
@@ -598,6 +606,7 @@ server <- function(input, output) {
     mutaciones_pato <- lapply(mutaciones_pato, function(x) if(length(x) == 0) NA else x)
     frecuenciasPato <- lapply(frecuenciasPato, function(x) if(length(x) == 0) NA else x)
     numero_iden_pato <- lapply(numero_iden_pato, function(x) if(length(x) == 0) NA else x)
+    cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
     
     print("_____________________________________________")
     print(chip2) #mal
@@ -656,16 +665,12 @@ server <- function(input, output) {
     
     T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = I(genes_mut_ordenados), 
                      'Número de la mutación específica' = I(numero_iden), 'Total del número de mutaciones' = unlist(num_mutaciones), 
-                     'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales))
-    print("_________________________________")
-    print("T3")
+                     'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales), 'Fusiones ID' = I(fusiones))
     print(T3)
     
     T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = I(mutaciones_pato), 
-                     'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato), 
-                     'Total de mutaciones patogénicas' = I(num_mutacionesPato))
-    print("_________________________________")
-    print("T4")
+                     'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato),
+                     'Cambios' = I(cambiosPato), 'Total de mutaciones patogénicas' = I(num_mutacionesPato))
     print(T4)
     T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
                      'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)
@@ -684,12 +689,12 @@ server <- function(input, output) {
     tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
     print(1)
     
-
-    output$pdf_content_output <- renderUI({renderTable({tabla_unida})})
-    output$pdf_content_output2 <- renderUI({renderTable({tabla_unida2})})
-    output$pdf_content_output3 <- renderUI({renderTable({tabla_final})})
-    output$pdf_content_output4 <- renderUI({renderTable({tabla_unida3})})
-    output$pdf_content_output5 <- renderUI({renderTable({tabla_final_pato})})
+    
+    output$pdf_content_output <- DT::renderDataTable({tabla_unida})
+    output$pdf_content_output2 <- DT::renderDataTable({ tabla_unida2 })
+    output$pdf_content_output3 <- DT::renderDataTable({tabla_final})
+    output$pdf_content_output4 <- DT::renderDataTable({tabla_unida3})
+    output$pdf_content_output5 <- DT::renderDataTable({tabla_final_pato})
     
 
     
