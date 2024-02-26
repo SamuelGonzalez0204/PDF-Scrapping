@@ -15,6 +15,6 @@ departamento de anatomía patológica. Esta aplicación se encarga de leer y ext
 
 El proposito de este TFG es proporcionar al profesional de la salud encargado de la lectura de los pdf una aplicación capaz de extraer toda la información relevante de dichos documentos y mostrarsela de forma rápida, clara y ordenada evitando posibles errores humanos.
 
-Entre las modificaciones llevadas a cabo se encuentran la traducción del código de Python a R, una mayor flexibilidad a la hora de seleccionr documentos y el desarrollo de una aplicación Shiny que proporciona una interfaz intuitiva y sencilla de trabajar para el patólogo.
+Entre las modificaciones llevadas a cabo se encuentran la traducción del código de Python a R, una mayor flexibilidad a la hora de seleccionr documentos, cambios necesarios para adaptarse a los nuevos formatos de pdf y el desarrollo de una aplicación Shiny que proporciona una interfaz intuitiva y sencilla de trabajar para el patólogo.
 
 
