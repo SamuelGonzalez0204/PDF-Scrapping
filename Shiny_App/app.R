@@ -14,7 +14,6 @@ library(shiny)
 
 ui <- fluidPage(
   
-  # Application title
   titlePanel(
     img(src = "LogoSACYL.png", align = "left", height = 40, width = 300),
     h1("PDF-Scrapping: Shiny app", style = "font-weight: 300; text-align: center; padding: 20px")
@@ -27,24 +26,20 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      fileInput("upload", NULL, buttonLabel = "Upload...", multiple = TRUE),
-      h3("Buttons"),
-      actionButton("action", "Aceptar"),
+      fileInput("upload","Seleccione un archivo PDF:", NULL, buttonLabel = "Upload...", multiple = TRUE),
+      actionButton("action", "Analizar"),
       br(),
       br(),
-      submitButton("Leer"),
-      br(),
-      br(),
-      downloadButton("download_excel", "Descargar datos en Excel"),
-
+      actionButton("overwrite_btn", "Sobreescribir"),
+      #downloadButton("download_excel", "Descargar tabla final pato")
     ),
     
-    
     mainPanel(
+      textOutput("status"),
       tabsetPanel(
         id = "tabset",
-        tabPanel("panel 1", DTOutput("pdf_content_output")),
-        tabPanel("panel 2", DTOutput("pdf_content_output2")),
+        tabPanel("tabla final", DTOutput("pdf_content_output")),
+        tabPanel("tabla final pato", DTOutput("pdf_content_output2"))
       )
     )
   )
@@ -61,7 +56,7 @@ server <- function(input, output) {
     library(tidyverse)
     library(stringr)
     library(readxl)
-    library(xlsx)
+    library(openxlsx)
     library(DT)
     
     CarpetaEntrada <- "INPUT"
@@ -81,15 +76,6 @@ server <- function(input, output) {
         ficheros <- c(ficheros, file$datapath[i])
       }
       return(ficheros)
-    }
-    
-    NombreFicherosPDF <- function() {
-      nombreFicheros <- list()
-      for (i in seq_along(input$upload$name)) {
-        file <- input$upload
-        nombreFicheros <- c(nombreFicheros, file$name[i])
-      }
-      return(nombreFicheros)
     }
     
     LeerDocumento <- function(nombreFichero) {
@@ -122,6 +108,20 @@ server <- function(input, output) {
       }
       return(Encontrados)
     }
+    
+    acotarTexto<-function(textoInicio, textoInicio2, linesTotal){
+      lines <- character()
+      indices_inicio <- grep(textoInicio, linesTotal)
+      indices_inicio2 <- grep(textoInicio2, linesTotal)
+      indice_limite <- grep(textoLimite, linesTotal)
+      if (length(indices_inicio2) != 0){
+        lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+      }else{
+        lines <- linesTotal[(indices_inicio + 1):(indice_limite[1] - 1)]
+      }
+      return(lines)
+    }
+    
     ficheroDiagnostico <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Diagnostico.xlsx")
     diagnostico <- read_excel(ficheroDiagnostico)
     diagnosticos_dic <- setNames(diagnostico$`NÚMERO DIAGNÓSTICO`, diagnostico$DIAGNÓSTICO)
@@ -131,10 +131,33 @@ server <- function(input, output) {
     mutaciones <- unique(genes$GEN)
     mutaciones_dic <- setNames(genes$`Número gen`, genes$GEN)
     
+    
+    #variables generales
+    
     rutaEntrada <- file.path(PathBase, CarpetaEntrada, CarpetaInformes)
     ficheros <- LeerFicherosPDF()
     
-    NHC_Data <- Nbiopsia_Data <- fecha_Data <- texto_Data <- list()
+    NHC_Data <- Nbiopsia_Data <- fecha_Data <- texto_Data <- genes_mut2 <- genes_mut_ordenados <- frecuencias_totales <- num_mutaciones <- numero_iden <- 
+      añadir <- cambiosPato <- frecuenciasPato <- mutaciones_pato <- patogen <- numero_iden_pato <- num_mutacionesPato <- list()
+    textoDiag <- NHC <- biopsia <- fechas <- chip2 <- fusiones <- character()
+    numeroDiag <- lista_ensayos <- ensayos_finales <- lista_tratamientos <- tratamientos_finales <- numeric()
+    
+    benigno <- resultado <- FALSE
+    max_mut <- 0
+    
+    B <- "1"
+    C <- "3"
+    P <- "2"
+    
+    patron <- "(\\d+)\\s* Ensayos clínicos"
+    patron2 <- "(\\d+)\\s* Tratamientos disponibles"
+    patron_frecuencia <- "\\d{2}\\.\\d{2}"
+    patron_cambio <-"\\(.*?\\)"
+    
+    textoInicio<- "Detalles de la variante"
+    textoInicio2<-"   Variaciones del número de copias"
+    textoLimite <- "1 Basado en la versión ClinVar"
+    
     
     for (ficheroPDF in ficheros) {
       lines <- LeerDocumento(ficheroPDF)
@@ -144,9 +167,6 @@ server <- function(input, output) {
       texto_Data[[length(texto_Data) + 1]] <- BuscarValor("de la muestra:", lines)
     }
     
-    textoDiag <- character()
-    numeroDiag <- numeric()
-    
     textoDiag <- sapply(texto_Data, function(x) unique(x)[1])
     
     for (diagnostico in textoDiag) {
@@ -154,7 +174,6 @@ server <- function(input, output) {
       numeroDiag <- c(numeroDiag, valor)
     }
     
-    NHC <- character()
     NHC <- sapply(NHC_Data, function(x) unique(x)[1])
     
     lista_resultante <- lapply(Nbiopsia_Data, function(sublist) {
@@ -164,138 +183,53 @@ server <- function(input, output) {
     
     NB_values <- unlist(lista_resultante)
     
-    biopsia<- character()
     biopsia<- sapply(lista_resultante, function(x) substr(x, 3,3))
     
-    B <- "1"
-    C <- "3"
-    P <- "2"
     Biopsia_solida <- character()
     Biopsia_solida <- ifelse(biopsia == "B", B,
                              ifelse(biopsia == "P", P, C))
     
-    fechas <- character()
     fechas <- sapply(fecha_Data, function(x) unique(x)[1])
     
-    patron <- "(\\d+)\\s* Ensayos clínicos"
-    ficheros <- LeerFicherosPDF()
-    lista_ensayos <- numeric()
-    ensayos_finales <- numeric()
-    
-    for (ficheroPDF in ficheros) {
+    lista_ensayos <- as.integer(sapply(ficheros, function(ficheroPDF) {
       lines <- LeerDocumento(ficheroPDF)
-      ensayos <- 0
-      for (line in lines) {
+      ensayos <- sapply(lines, function(line) {
         resultado <- str_match(line, patron)
         if (!is.na(resultado[1])) {
-          ensayos <- as.integer(resultado[1, 2]) 
+          return(as.integer(resultado[1, 2]))
+        } else {
+          return(0)
         }
-      }
-      lista_ensayos <- c(lista_ensayos, ensayos)
-    }
-    print(lista_ensayos)
+      })
+      return(sum(ensayos))
+    }))
     
-    for (i in lista_ensayos) {
-      if (i == 0) {
-        ensayos_finales <- c(ensayos_finales, 0)
-      } else {
-        ensayos_finales <- c(ensayos_finales, 1)
-      }
-    }
-    print(ensayos_finales)
+    ensayos_finales <- ifelse(lista_ensayos %in% 0, 0, 1)
     
-    patron2 <- "(\\d+)\\s* Tratamientos disponibles"
-    ficheros <- LeerFicherosPDF()
-    lista_tratamientos <- numeric()
-    tratamientos_finales <- numeric()
-    
-    for (ficheroPDF in ficheros) {
+    lista_tratamientos <- as.integer(sapply(ficheros, function(ficheroPDF) {
       lines <- LeerDocumento(ficheroPDF)
-      tratamientos <- 0
-      for (line in lines) {
+      tratamientos <- sapply(lines, function(line) {
         resultado <- str_match(line, patron2)
         if (!is.na(resultado[1])) {
-          tratamientos <- as.integer(resultado[1, 2]) 
+          return(as.integer(resultado[1, 2]))
+        } else {
+          return(0)
         }
-      }
-      lista_tratamientos <- c(lista_tratamientos, tratamientos)
-    }
-    print(lista_tratamientos)
-    for (i in lista_tratamientos) {
-      if (i == 0) {
-        tratamientos_finales <- c(tratamientos_finales, 0)
-      } else {
-        tratamientos_finales <- c(tratamientos_finales, 1)
-      }
-    }
-    print(tratamientos_finales)
+      })
+      return(sum(tratamientos))
+    }))
     
+    tratamientos_finales <- as.integer(lista_tratamientos != 0)
+    
+    numero_paciente <- gsub("^.*Sample_(\\d+)_.*\\.pdf$", "\\1", ficheros)
+    
+    pdf_files <- ficheros[grep("\\.pdf$", ficheros)]
+    chip_match <- str_match(pdf_files, "v(\\d+)_")
+    chip2 <- as.integer(chip_match[, 2])
     
     for (ficheroPDF in ficheros) {
-      if (file.exists(ficheroPDF) && grepl("\\.pdf$", ficheroPDF)) {
-        print(ficheroPDF)
-      }
-    }
-    
-    nombreFicheros <- NombreFicherosPDF()
-    numero_paciente <- character()
-    for (ficheroPDF in nombreFicheros) {
-      print("_____________________________")
-      print(ficheroPDF)
-      if (grepl("\\.pdf$", ficheroPDF)) {
-        fichero1 <- basename(ficheroPDF)
-        print(fichero1)
-        paciente <- str_remove(fichero1, "\\.pdf$")
-        print(paciente)
-        pacientes <- substr(paciente, 8, 8)
-        print(pacientes)
-        numero_paciente <- c(numero_paciente, pacientes)
-        print(numero_paciente)
-        print("_____________________________")
-      }
-    }
-    print(numero_paciente)
-    
-    chip2 <- c()
-    for (ficheroPDF in nombreFicheros) {
-      if (grepl("\\.pdf$", ficheroPDF)) {    
-        patron <- "v(\\d+)_"
-        resultado <- str_match(ficheroPDF, patron)
-        
-        if (!is.na(resultado[1])) {
-          numero_chip <- resultado[1,2]
-          chip2 <- c(chip2, numero_chip)
-        }
-      }
-    }
-    print(chip2)
-    
-    benigno <- FALSE
-    resultado <- FALSE
-    ficheros <- LeerFicherosPDF()
-    max_mut <- 0
-    genes_mut2 <- list()
-    genes_mut_ordenados <- list()
-    frecuencias_totales <- list()
-    textoInicio<- "Detalles de la variante"
-    textoInicio2<-"   Variaciones del número de copias"
-    textoLimite <- "1 Basado en la versión ClinVar"
-    patron_frecuencia <- "\\d{2}\\.\\d{2}"
-    for (ficheroPDF in ficheros) {
-      inicio <- FALSE
-      nombreFichero <- ficheroPDF
-      linesTotal <- LeerDocumento(nombreFichero)
-      lines <- character()
-      for (line in linesTotal){
-        if (line == textoInicio | line == textoInicio2){
-          inicio <- TRUE
-        }
-        if (!grepl(textoLimite, line) && inicio == TRUE){
-          lines <- c(lines,line)
-        }else if (grepl(textoLimite, line)){
-          inicio <- FALSE
-        }
-      }
+      linesTotal <- LeerDocumento(ficheroPDF)
+      lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
       total_mut <- 0
       encontrados2 <- list()
       lista_frec <- character()
@@ -309,12 +243,10 @@ server <- function(input, output) {
             if (mutacion == "FGFR4") {
               benigno2<-FALSE
               for (a in strsplit(lines[posicion], " ")[[1]]) {
-                #print(a)
                 if ("p.(P136L)"==a) {
                   benigno2 <- TRUE
                 }
               }
-              #print(benigno2)
               if (benigno2) {
                 next
               }else{
@@ -331,8 +263,7 @@ server <- function(input, output) {
               if (!benigno) {
                 total_mut <- total_mut + 1
                 encontrados2 <- c(encontrados2, mutacion)
-                genes_mut2 <- append(genes_mut2,mutacion)
-                print(paste(nombreFichero, "- Existe:", mutacion))
+                genes_mut2 <- c(genes_mut2,mutacion)
                 for (i in strsplit(lines[posicion], " ")[[1]]) {
                   resultado <- str_match(i, patron_frecuencia)
                   if (!is.na(resultado)) {
@@ -350,30 +281,24 @@ server <- function(input, output) {
       if (total_mut > max_mut) {
         max_mut <- total_mut
       }
-      frecuencias_totales <- append(frecuencias_totales, list(lista_frec))
-      genes_mut_ordenados <- append(genes_mut_ordenados, list(genes_mut2))
+      frecuencias_totales <- c(frecuencias_totales, list(lista_frec))
+      genes_mut_ordenados <- c(genes_mut_ordenados, list(unlist(genes_mut2)))
       genes_mut2 <- list()
     }
     
-    print(frecuencias_totales)
-    
-    print(genes_mut_ordenados)
-    
-    num_mutaciones<- list()
     
     for (lista in genes_mut_ordenados){
       num_mutaciones<- c(num_mutaciones, length(lista))
     }
-    print(num_mutaciones)
     
-    numero_iden <- lapply(genes_mut_ordenados, function(x) {
-      sapply(x, function(gen) {
-        mutaciones_dic[[gen]]
-      })
-    })
-    print(numero_iden)
+    for (i in genes_mut_ordenados){
+      for (gen in i){
+        añadir <- c(añadir, mutaciones_dic[[gen]])
+      }
+      numero_iden <- c(numero_iden, list(unlist(añadir)))
+      añadir <- list()
+    }
     
-    fusiones <- character()
     for (ficheroPDF in ficheros) {
       lines <- LeerDocumento(file.path(ficheroPDF))
       variantes <- character()
@@ -391,26 +316,10 @@ server <- function(input, output) {
       }
       fusiones <- append(fusiones, list(variantes))
     }
-    print(fusiones)
-    
-    
-    #library(openxlsx)
     
     for (ficheroPDF in ficheros) {
-      nombreFichero <- file.path(ficheroPDF)
-      lines <- LeerDocumento(nombreFichero)
-      inicio <- FALSE
-      lines <- character()
-      for (line in linesTotal){
-        if (line == textoInicio | line == textoInicio2){
-          inicio <- TRUE
-        }
-        if (line != textoLimite && inicio == TRUE){
-          lines <- c(lines,line)
-        }else if (line == textoLimite){
-          inicio <- FALSE
-        }
-      }
+      linesTotal <- LeerDocumento(ficheroPDF)
+      lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
       for (mutacion in mutaciones){
         coincidencias <- character()
         coincidencias <- grepl(mutacion, lines)
@@ -420,7 +329,6 @@ server <- function(input, output) {
             
             for (a in strsplit(lines[posicion], " ")[[1]]) {
               if (grepl("Pathogeni", a)) {
-                print(paste(nombreFichero, " - Existe: ", mutacion, " - Pathogenic"))
               }
             }
           }
@@ -428,30 +336,11 @@ server <- function(input, output) {
       }
     }
     
-    patron_frecuencia <- "\\d{2}\\.\\d{2}"
-    patron_cambio <-"\\(.*?\\)"
-    frecuenciasPato <- list()
-    cambiosPato <- list()
-    
     for (ficheroPDF in ficheros) {
       lista_frec <- list()
       lista_cambio <- list()
-      nombreFichero <- file.path(ficheroPDF)
-      lines <- LeerDocumento(nombreFichero)
-      inicio <- FALSE
-      nombreFichero <- ficheroPDF
-      linesTotal <- LeerDocumento(nombreFichero)
-      lines <- character()
-      for (line in linesTotal){
-        if (line == textoInicio | line == textoInicio2){
-          inicio <- TRUE
-        }
-        if (line != textoLimite && inicio == TRUE){
-          lines <- c(lines,line)
-        }else if (line == textoLimite){
-          inicio <- FALSE
-        }
-      }
+      linesTotal <- LeerDocumento(ficheroPDF)
+      lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
       for (mutacion in mutaciones){
         coincidencias <- character()
         coincidencias <- grepl(mutacion, lines)
@@ -461,8 +350,7 @@ server <- function(input, output) {
             
             for (a in strsplit(lines[posicion], " ")[[1]]) {
               if (grepl("Pathogeni", a)) {
-                print(paste(nombreFichero, " - Existe: ", mutacion, " - Pathogenic"))
-                
+
                 for (i in strsplit(lines[posicion], " ")[[1]]) {
                   resultado <- str_match(i, patron_frecuencia)
                   resultado2 <- str_match(i, patron_cambio)
@@ -483,11 +371,6 @@ server <- function(input, output) {
       frecuenciasPato <- append(frecuenciasPato, list(unlist(lista_frec)))
       cambiosPato<- append(cambiosPato, list(unlist(lista_cambio)))
     }
-    print(frecuenciasPato)
-    
-    
-    patogen <- list()
-    mutaciones_pato <- list()
     
     for (ficheroPDF in ficheros) {
       nombreFichero <- file.path(ficheroPDF)
@@ -524,19 +407,12 @@ server <- function(input, output) {
       patogen[[ficheroPDF]] <- genpato2
       mutaciones_pato <- append(mutaciones_pato, list(genpato2))
     }
-    print(patogen)
-    
-    print(mutaciones_pato)
-    
-    numero_iden_pato <- list()
     
     for (i in mutaciones_pato) {
       valores <- sapply(i, function(gen) ifelse(is.null(mutaciones_dic[[gen]]), 0, mutaciones_dic[[gen]]))
       numero_iden_pato <- append(numero_iden_pato, list(valores))
     }
-    print(numero_iden_pato)
     
-    num_mutacionesPato <- list()
     for (lista in numero_iden_pato){
       num_mutacionesPato <- c(num_mutacionesPato, length(lista))
     }
@@ -550,12 +426,13 @@ server <- function(input, output) {
     numero_iden_pato <- lapply(numero_iden_pato, function(x) if(length(x) == 0) NA else x)
     cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
     
-    T1 <- data.frame('Número de chip' = chip2, 'Número de paciente' = numero_paciente, 'NHC' = NHC, 
+    
+    T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
                      'Número de biopsia' = NB_values, 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas)
 
-    T2 <- data.frame('Número de chip' = chip2, 'Número de paciente' = numero_paciente, 'Diagnóstico' = textoDiag, 
+    T2 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Diagnóstico' = textoDiag, 
                      'Número del diagnóstico' = numeroDiag)
-   
+
     T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = I(genes_mut_ordenados), 
                      'Número de la mutación específica' = I(numero_iden), 'Total del número de mutaciones' = unlist(num_mutaciones), 
                      'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales), 'Fusiones ID' = I(fusiones))
@@ -566,45 +443,87 @@ server <- function(input, output) {
 
     T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
                      'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)
-   
-    tabla_unida <- merge(T1, T2, by = c("Número.de.chip", "Número.de.paciente"))
-    tabla_unida2 <- merge(tabla_unida, T3, by = c("Número.de.chip", "Número.de.biopsia"))
+    
+    
+    tabla_unida <- merge(T1, T2, by = c("Número.de.chip", "Número.de.biopsia"), all=TRUE)
+    tabla_unida2 <- merge(tabla_unida, T3, by = c("Número.de.chip", "Número.de.biopsia"), all=TRUE)
     tabla_final <- merge(tabla_unida2, T5, by = c("Número.de.chip", "Número.de.biopsia"))
-    print(class(tabla_final))
     tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))
     tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
-
-    output$pdf_content_output <- DT::renderDataTable({tabla_final})
-    output$pdf_content_output2 <- DT::renderDataTable({tabla_final_pato})
+    
+    output$pdf_content_output <- DT::renderDataTable({
+      DT::datatable(tabla_final, filter = 'top',extensions = 'Buttons', 
+                    options = list(
+                      dom = 'Bfrtip',
+                      buttons =  
+                        list('copy', 'print', list(
+                          extend = 'collection',
+                          buttons = c('csv', 'excel', 'pdf'),
+                          text = 'Download')
+                      )
+                    )
+                  )
+    })
+    output$pdf_content_output2 <- DT::renderDataTable({
+      DT::datatable(tabla_final_pato, extensions = 'Buttons', options = list(
+        dom = 'Bfrtip',
+        buttons =  
+          list('copy', 'print', list(
+            extend = 'collection',
+            buttons = c('csv', 'excel', 'pdf'),
+            text = 'Download'))))
+    })
     
 
     
     output$panel <- renderText({paste("Panel actual: ", input$tabset)})
     
-    #function(input, output) {
-     # output$value <- renderPrint({ input$select })
-    #}
+    output$download_excel <- downloadHandler(
+      filename = function() {
+        paste0(input$file, ".csv", sep = "")
+      },
+      content = function(file) {
+        vroom::vroom_write(tabla_final, file, col_names = TRUE, 
+                           append=TRUE,quote = "needed", bom = TRUE)
+      }
+    )
     
+    list_to_string <- function(x) {
+      if (is.list(x)) {
+        paste(x, collapse = ", ")
+      } else {
+        as.character(x)
+      }
+    }
+    
+    observeEvent(input$overwrite_btn, {
+      req(input$upload)  # Verifica que se haya seleccionado un archivo
+      
+      # Lee el contenido del archivo seleccionado
+      wb <- loadWorkbook(input$upload$datapath)
+      
+      tabla_final_texto <- lapply(tabla_final, function(col) {
+        if (is.list(col)) {
+          sapply(col, list_to_string)
+        } else {
+          col
+        }
+      })
+      addWorksheet(wb, "Nueva Hoja")
+      writeData(wb, "Nueva Hoja", tabla_final_texto, startCol = 1, startRow = 1)
+      
+      # Guarda el libro actualizado
+      saveWorkbook(wb, input$upload$datapath, overwrite = TRUE)
+      
+      # Muestra un mensaje de éxito
+      output$status <- renderText({
+        paste("Se ha añadido contenido al archivo:", input$upload$name)
+      })
+    })
 
   })
   
-  output$download_excel <- downloadHandler(
-    filename = function() {
-      paste0("datos_", Sys.Date(), ".xlsx", sep = "")
-    },
-    content = function(file) {
-      # Crear un nuevo libro de Excel
-      wb <- createWorkbook()
-      # Añadir una hoja al libro
-      sheet <- createSheet(wb, sheetName = "Tabla Final")
-      
-      # Agregar los datos de tabla_final al libro en la hoja creada
-      addDataFrame(tabla_final, sheet = sheet)
-      
-      # Guardar el libro como un archivo Excel
-      saveWorkbook(wb, file)
-    }
-  )
+  
   
 }
 

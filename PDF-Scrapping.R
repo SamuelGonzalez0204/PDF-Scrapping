@@ -1,9 +1,9 @@
-install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx"))
+install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx","openxlsx"))
 install.packages("DT", repos = "http://cran.us.r-project.org")
-
+install.packages("shinyFiles")
 runApp("Shiny_App")
 
-#update.packages()
+#update.packages("shinyFiles")
 
 library(tools)
 library(pdftools)
@@ -11,6 +11,7 @@ library(tidyverse)
 library(stringr)
 library(readxl)
 library(xlsx)
+library(openxlsx)
 
 CarpetaEntrada <- "INPUT"
 CarpetaDatos <- "DATOS"
@@ -53,6 +54,19 @@ BuscarValor <- function(textoBuscar, lines) {
     }
   }
   return(Encontrados)
+}
+
+acotarTexto<-function(textoInicio, textoInicio2, linesTotal){
+  lines <- character()
+  indices_inicio <- grep(textoInicio, linesTotal)
+  indices_inicio2 <- grep(textoInicio2, linesTotal)
+  indice_limite <- grep(textoLimite, linesTotal)
+  if (length(indices_inicio2) != 0){
+    lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+  }else{
+    lines <- linesTotal[(indices_inicio + 1):(indice_limite[1] - 1)]
+  }
+  return(lines)
 }
 
 ficheroDiagnostico <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Diagnostico.xlsx")
@@ -124,64 +138,45 @@ Biopsia_solida <- ifelse(biopsia == "B", B,
 
 fechas <- sapply(fecha_Data, function(x) unique(x)[1])
 
-for (ficheroPDF in ficheros) {
+lista_ensayos <- as.integer(sapply(ficheros, function(ficheroPDF) {
   lines <- LeerDocumento(ficheroPDF)
-  ensayos <- 0
-  for (line in lines) {
+  ensayos <- sapply(lines, function(line) {
     resultado <- str_match(line, patron)
     if (!is.na(resultado[1])) {
-      ensayos <- as.integer(resultado[1, 2]) 
+      return(as.integer(resultado[1, 2]))
+    } else {
+      return(0)
     }
-  }
-  lista_ensayos <- c(lista_ensayos, ensayos)
-}
+  })
+  return(sum(ensayos))
+}))
 
-ensayos_finales <- ifelse(lista_ensayos == 0, 0, 1)
+ensayos_finales <- ifelse(lista_ensayos %in% 0, 0, 1)
 
-for (ficheroPDF in ficheros) {
+lista_tratamientos <- as.integer(sapply(ficheros, function(ficheroPDF) {
   lines <- LeerDocumento(ficheroPDF)
-  tratamientos <- 0
-  for (line in lines) {
+  tratamientos <- sapply(lines, function(line) {
     resultado <- str_match(line, patron2)
     if (!is.na(resultado[1])) {
-      tratamientos <- as.integer(resultado[1, 2]) 
+      return(as.integer(resultado[1, 2]))
+    } else {
+      return(0)
     }
-  }
-  lista_tratamientos <- c(lista_tratamientos, tratamientos)
-}
+  })
+  return(sum(tratamientos))
+}))
 
 tratamientos_finales <- as.integer(lista_tratamientos != 0)
 
 numero_paciente <- gsub("^.*Sample_(\\d+)_.*\\.pdf$", "\\1", ficheros)
 
+pdf_files <- ficheros[grep("\\.pdf$", ficheros)]
+chip_match <- str_match(pdf_files, "v(\\d+)_")
+chip2 <- as.integer(chip_match[, 2])
 
 for (ficheroPDF in ficheros) {
-  if (file.exists(ficheroPDF) && grepl("\\.pdf$", ficheroPDF)) {    
-    patron <- "v(\\d+)_"
-    resultado <- str_match(ficheroPDF, patron)
-    
-    if (!is.na(resultado[1])) {
-      numero_chip <- resultado[1,2]
-      chip2 <- c(chip2, numero_chip)
-    }
-  }
-}
-
-for (ficheroPDF in ficheros) {
-  inicio <- FALSE
-  nombreFichero <- ficheroPDF
-  linesTotal <- LeerDocumento(nombreFichero)
-  lines <- character()
-  for (line in linesTotal){
-    if (line == textoInicio | line == textoInicio2){
-      inicio <- TRUE
-    }
-    if (!grepl(textoLimite, line) && inicio == TRUE){
-      lines <- c(lines,line)
-    }else if (grepl(textoLimite, line)){
-      inicio <- FALSE
-    }
-  }
+  linesTotal <- LeerDocumento(ficheroPDF)
+  lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
   total_mut <- 0
   encontrados2 <- list()
   lista_frec <- character()
@@ -273,20 +268,8 @@ for (ficheroPDF in ficheros) {
 }
 
 for (ficheroPDF in ficheros) {
-  nombreFichero <- file.path(ficheroPDF)
-  lines <- LeerDocumento(nombreFichero)
-  inicio <- FALSE
-  lines <- character()
-  for (line in linesTotal){
-    if (line == textoInicio | line == textoInicio2){
-      inicio <- TRUE
-    }
-    if (line != textoLimite && inicio == TRUE){
-      lines <- c(lines,line)
-    }else if (line == textoLimite){
-      inicio <- FALSE
-    }
-  }
+  linesTotal <- LeerDocumento(ficheroPDF)
+  lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
   for (mutacion in mutaciones){
     coincidencias <- character()
     coincidencias <- grepl(mutacion, lines)
@@ -307,22 +290,8 @@ for (ficheroPDF in ficheros) {
 for (ficheroPDF in ficheros) {
   lista_frec <- list()
   lista_cambio <- list()
-  nombreFichero <- file.path(ficheroPDF)
-  lines <- LeerDocumento(nombreFichero)
-  inicio <- FALSE
-  nombreFichero <- ficheroPDF
-  linesTotal <- LeerDocumento(nombreFichero)
-  lines <- character()
-  for (line in linesTotal){
-    if (line == textoInicio | line == textoInicio2){
-      inicio <- TRUE
-    }
-    if (line != textoLimite && inicio == TRUE){
-      lines <- c(lines,line)
-    }else if (line == textoLimite){
-      inicio <- FALSE
-    }
-  }
+  linesTotal <- LeerDocumento(ficheroPDF)
+  lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
   for (mutacion in mutaciones){
     coincidencias <- character()
     coincidencias <- grepl(mutacion, lines)
