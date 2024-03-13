@@ -10,12 +10,14 @@
 # Define UI for application that draws a histogram
 
 library(shiny)
+library(DT)
 #library(shinyFiles)
 
 ui <- fluidPage(
   
   titlePanel(
     img(src = "LogoSACYL.png", align = "left", height = 40, width = 300),
+    #img(src = "LogoUBU.png", align = "right", height = 50, width = 100)
     h1("PDF-Scrapping: Shiny app", style = "font-weight: 300; text-align: center; padding: 20px")
   ),
   
@@ -57,7 +59,7 @@ server <- function(input, output) {
     library(stringr)
     library(readxl)
     library(openxlsx)
-    library(DT)
+    
     
     CarpetaEntrada <- "INPUT"
     CarpetaDatos <- "DATOS"
@@ -114,8 +116,13 @@ server <- function(input, output) {
       indices_inicio <- grep(textoInicio, linesTotal)
       indices_inicio2 <- grep(textoInicio2, linesTotal)
       indice_limite <- grep(textoLimite, linesTotal)
+      indice_limite2 <- grep(textoLimite2, linesTotal)
       if (length(indices_inicio2) != 0){
-        lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+        if (length(indice_limite2) != 0){
+          lines <- linesTotal[(indices_inicio + 1):(indice_limite2[1] - 1)]
+        }else{
+          lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+        }
       }else{
         lines <- linesTotal[(indices_inicio + 1):(indice_limite[1] - 1)]
       }
@@ -157,6 +164,7 @@ server <- function(input, output) {
     textoInicio<- "Detalles de la variante"
     textoInicio2<-"   Variaciones del número de copias"
     textoLimite <- "1 Basado en la versión ClinVar"
+    textoLimite2 <-"Comentarios adicionales sobre las variantes"
     
     
     for (ficheroPDF in ficheros) {
@@ -256,7 +264,7 @@ server <- function(input, output) {
             } else {
               benigno <- FALSE
               for (a in strsplit(lines[posicion], " ")[[1]]) {
-                if (grepl("Benign", a)) {
+                if (grepl("Benign", a) | grepl("benign", a)) {
                   benigno <- TRUE
                 }
               }
@@ -315,25 +323,6 @@ server <- function(input, output) {
         }
       }
       fusiones <- append(fusiones, list(variantes))
-    }
-    
-    for (ficheroPDF in ficheros) {
-      linesTotal <- LeerDocumento(ficheroPDF)
-      lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-      for (mutacion in mutaciones){
-        coincidencias <- character()
-        coincidencias <- grepl(mutacion, lines)
-        for (coincidencia in 1:length(coincidencias)){
-          if (coincidencias[coincidencia] == TRUE){
-            posicion <- coincidencia
-            
-            for (a in strsplit(lines[posicion], " ")[[1]]) {
-              if (grepl("Pathogeni", a)) {
-              }
-            }
-          }
-        }
-      }
     }
     
     for (ficheroPDF in ficheros) {

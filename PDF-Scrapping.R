@@ -61,8 +61,13 @@ acotarTexto<-function(textoInicio, textoInicio2, linesTotal){
   indices_inicio <- grep(textoInicio, linesTotal)
   indices_inicio2 <- grep(textoInicio2, linesTotal)
   indice_limite <- grep(textoLimite, linesTotal)
+  indice_limite2 <- grep(textoLimite2, linesTotal)
   if (length(indices_inicio2) != 0){
-    lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+    if (length(indice_limite2) != 0){
+      lines <- linesTotal[(indices_inicio + 1):(indice_limite2[1] - 1)]
+    }else{
+      lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+    }
   }else{
     lines <- linesTotal[(indices_inicio + 1):(indice_limite[1] - 1)]
   }
@@ -104,6 +109,7 @@ patron_cambio <-"\\(.*?\\)"
 textoInicio<- "Detalles de la variante"
 textoInicio2<-"   Variaciones del número de copias"
 textoLimite <- "1 Basado en la versión ClinVar"
+textoLimite2 <-"Comentarios adicionales sobre las variantes"
 
 
 for (ficheroPDF in ficheros) {
@@ -186,26 +192,24 @@ for (ficheroPDF in ficheros) {
     for (coincidencia in 1:length(coincidencias)){
       if (coincidencias[coincidencia] == TRUE){
         posicion <- coincidencia
-      
+        
         if (mutacion == "FGFR4") {
           benigno2<-FALSE
           for (a in strsplit(lines[posicion], " ")[[1]]) {
-            #print(a)
             if ("p.(P136L)"==a) {
               benigno2 <- TRUE
             }
           }
-          #print(benigno2)
           if (benigno2) {
             next
           }else{
             total_mut <- total_mut + 1
             encontrados2 <- c(encontrados2, mutacion)
           }
-      } else {
+        } else {
           benigno <- FALSE
           for (a in strsplit(lines[posicion], " ")[[1]]) {
-            if (grepl("Benign", a)) {
+            if (grepl("Benign", a) | grepl("benign", a)) {
               benigno <- TRUE
             }
           }
@@ -213,7 +217,6 @@ for (ficheroPDF in ficheros) {
             total_mut <- total_mut + 1
             encontrados2 <- c(encontrados2, mutacion)
             genes_mut2 <- c(genes_mut2,mutacion)
-            print(paste(nombreFichero, "- Existe:", mutacion))
             for (i in strsplit(lines[posicion], " ")[[1]]) {
               resultado <- str_match(i, patron_frecuencia)
               if (!is.na(resultado)) {
@@ -227,7 +230,7 @@ for (ficheroPDF in ficheros) {
     }
     
   }
-
+  
   if (total_mut > max_mut) {
     max_mut <- total_mut
   }
@@ -235,7 +238,6 @@ for (ficheroPDF in ficheros) {
   genes_mut_ordenados <- c(genes_mut_ordenados, list(unlist(genes_mut2)))
   genes_mut2 <- list()
 }
-
 
 for (lista in genes_mut_ordenados){
   num_mutaciones<- c(num_mutaciones, length(lista))
@@ -265,26 +267,6 @@ for (ficheroPDF in ficheros) {
     }
   }
   fusiones <- append(fusiones, list(variantes))
-}
-
-for (ficheroPDF in ficheros) {
-  linesTotal <- LeerDocumento(ficheroPDF)
-  lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-  for (mutacion in mutaciones){
-    coincidencias <- character()
-    coincidencias <- grepl(mutacion, lines)
-    for (coincidencia in 1:length(coincidencias)){
-      if (coincidencias[coincidencia] == TRUE){
-        posicion <- coincidencia
-        
-        for (a in strsplit(lines[posicion], " ")[[1]]) {
-          if (grepl("Pathogeni", a)) {
-            print(paste(nombreFichero, " - Existe: ", mutacion, " - Pathogenic"))
-          }
-        }
-      }
-    }
-  }
 }
 
 for (ficheroPDF in ficheros) {
