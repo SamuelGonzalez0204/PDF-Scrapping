@@ -13,6 +13,7 @@ library(shiny)
 library(DT)
 #library(shinyFiles)
 
+
 ui <- fluidPage(
   
   titlePanel(
@@ -37,6 +38,8 @@ ui <- fluidPage(
     ),
     
     mainPanel(
+      div(id = "table_proxy_div", style = "display: none;", dataTableOutput("table_proxy")),
+      div(id = "table_proxy_div", style = "display: none;", dataTableOutput("table_proxy2")),
       textOutput("status"),
       tabsetPanel(
         id = "tabset",
@@ -440,29 +443,61 @@ server <- function(input, output) {
     tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))
     tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
     
-    output$pdf_content_output <- DT::renderDataTable({
-      DT::datatable(tabla_final, filter = 'top',extensions = 'Buttons', 
-                    options = list(
-                      dom = 'Bfrtip',
-                      buttons =  
-                        list('copy', 'print', list(
-                          extend = 'collection',
-                          buttons = c('csv', 'excel', 'pdf'),
-                          text = 'Download')
-                      )
-                    )
-                  )
-    })
-    output$pdf_content_output2 <- DT::renderDataTable({
-      DT::datatable(tabla_final_pato, extensions = 'Buttons', options = list(
-        dom = 'Bfrtip',
-        buttons =  
-          list('copy', 'print', list(
-            extend = 'collection',
-            buttons = c('csv', 'excel', 'pdf'),
-            text = 'Download'))))
+    output$table_proxy <- renderDataTable({
+      datatable(tabla_final, selection = 'none', editable = 'cell')
     })
     
+    #Tabla_final
+    
+    proxy <- dataTableProxy("table_proxy")
+    
+    output$pdf_content_output <- DT::renderDataTable({
+      DT::datatable(tabla_final, selection = 'none', editable = 'cell', extensions = 'Buttons', 
+                    options = list(
+                      dom = 'Bfrtip',
+                      buttons = list('copy', 'print', list(
+                        extend = 'collection',
+                        buttons = c('csv', 'excel', 'pdf'),
+                        text = 'Download')
+                      )
+                    )
+      )
+    })
+    
+    observeEvent(input$pdf_content_output_cell_edit, {
+      info <- input$pdf_content_output_cell_edit
+      str(info)
+      tabla_final <<- editData(tabla_final, info)
+      replaceData(proxy, tabla_final, resetPaging = FALSE)
+    })
+    
+    # Tabla_final_pato
+    
+    output$table_proxy2 <- renderDataTable({
+      datatable(tabla_final_pato, selection = 'none', editable = 'cell')
+    })
+    
+    proxy2 <- dataTableProxy("table_proxy2")
+    
+    output$pdf_content_output2 <- DT::renderDataTable({
+      DT::datatable(tabla_final_pato, selection = 'none', editable = 'cell', extensions = 'Buttons', 
+                    options = list(
+                      dom = 'Bfrtip',
+                      buttons = list('copy', 'print', list(
+                        extend = 'collection',
+                        buttons = c('csv', 'excel', 'pdf'),
+                        text = 'Download')
+                      )
+                    )
+      )
+    })
+    
+    observeEvent(input$pdf_content_output2_cell_edit, {
+      info <- input$pdf_content_output2_cell_edit
+      str(info)
+      tabla_final_pato <<- editData(tabla_final_pato, info)
+      replaceData(proxy2, tabla_final_pato, resetPaging = FALSE)
+    })
 
     
     output$panel <- renderText({paste("Panel actual: ", input$tabset)})

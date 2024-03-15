@@ -56,6 +56,20 @@ BuscarValor <- function(textoBuscar, lines) {
   return(Encontrados)
 }
 
+BuscarVariable <- function(lines, textoBuscar){
+  posicionValor <- grep(textoBuscar, lines)
+  if (length(posicionValor) != 0){
+    lineaValor <- lines[posicionValor[1]]
+    if (textoBuscar == patron_porcentaje_tumoral){
+      lineaValor <- sub("\\s*/.*", "", lineaValor)
+    }
+    valor <- sub(textoBuscar, "", lineaValor)
+    trimws(valor)
+  } else {
+    "Null"
+  }
+}
+
 acotarTexto<-function(textoInicio, textoInicio2, linesTotal){
   lines <- character()
   indices_inicio <- grep(textoInicio, linesTotal)
@@ -90,7 +104,8 @@ rutaEntrada <- file.path(PathBase, CarpetaEntrada, CarpetaInformes)
 ficheros <- LeerFicherosPDF(rutaEntrada)
 
 NHC_Data <- Nbiopsia_Data <- fecha_Data <- texto_Data <- genes_mut2 <- genes_mut_ordenados <- frecuencias_totales <- num_mutaciones <- numero_iden <- 
-  añadir <- cambiosPato <- frecuenciasPato <- mutaciones_pato <- patogen <- numero_iden_pato <- num_mutacionesPato <- list()
+  añadir <- cambiosPato <- frecuenciasPato <- mutaciones_pato <- patogen <- numero_iden_pato <- num_mutacionesPato <- 
+  diagnostico <- sexo <- porcentaje_tumoral <- calidad <- list()
 textoDiag <- NHC <- biopsia <- fechas <- chip2 <- fusiones <- character()
 numeroDiag <- lista_ensayos <- ensayos_finales <- lista_tratamientos <- tratamientos_finales <- numeric()
 
@@ -106,11 +121,24 @@ patron2 <- "(\\d+)\\s* Tratamientos disponibles"
 patron_frecuencia <- "\\d{2}\\.\\d{2}"
 patron_cambio <-"\\(.*?\\)"
 
+patron_diagnostico <- ".*Diagnóstico:\\s"
+patron_sexo <- ".*Sexo:\\s*"
+patron_porcentaje_tumoral <- ".*% células tumorales:\\s"
+patron_calidad <- ".*CALIDAD DE LA MUESTRA /LIMITACIONES PARA SU ANÁLISIS:\\s"
+
 textoInicio<- "Detalles de la variante"
 textoInicio2<-"   Variaciones del número de copias"
 textoLimite <- "1 Basado en la versión ClinVar"
 textoLimite2 <-"Comentarios adicionales sobre las variantes"
 
+for (ficheroPDF in ficheros){
+  lines <- LeerDocumento(ficheroPDF)
+  diagnostico <- c(diagnostico, BuscarVariable(lines, patron_diagnostico))
+  sexo <- c(sexo, BuscarVariable(lines, patron_sexo))
+  porcentaje_tumoral <- c(porcentaje_tumoral, BuscarVariable(lines, patron_porcentaje_tumoral))
+  calidad <- c(calidad, BuscarVariable(lines, patron_calidad))
+  
+}
 
 for (ficheroPDF in ficheros) {
   lines <- LeerDocumento(ficheroPDF)
