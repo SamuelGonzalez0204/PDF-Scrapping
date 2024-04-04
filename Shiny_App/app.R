@@ -33,7 +33,7 @@ ui <- fluidPage(
       actionButton("action", "Analizar"),
       br(),
       br(),
-      actionButton("overwrite_btn", "Sobreescribir"),
+      actionButton("subir", "Almacenar datos"),
       #downloadButton("download_excel", "Descargar tabla final pato")
     ),
     
@@ -62,6 +62,7 @@ server <- function(input, output) {
     library(stringr)
     library(readxl)
     library(openxlsx)
+    library(mongolite)
     
     
     CarpetaEntrada <- "INPUT"
@@ -443,11 +444,11 @@ server <- function(input, output) {
     tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))
     tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
     
+    #Tabla_final
+    
     output$table_proxy <- renderDataTable({
       datatable(tabla_final, selection = 'none', editable = 'cell')
     })
-    
-    #Tabla_final
     
     proxy <- dataTableProxy("table_proxy")
     
@@ -500,50 +501,27 @@ server <- function(input, output) {
     })
 
     
-    output$panel <- renderText({paste("Panel actual: ", input$tabset)})
+   
     
-    output$download_excel <- downloadHandler(
-      filename = function() {
-        paste0(input$file, ".csv", sep = "")
-      },
-      content = function(file) {
-        vroom::vroom_write(tabla_final, file, col_names = TRUE, 
-                           append=TRUE,quote = "needed", bom = TRUE)
+    observeEvent(input$subir, {
+      mongo_url <- "mongodb://localhost:27017"
+      collection_name <- "TFG"
+      ml <- mongo(collection_name, url = mongo_url)
+      for (paciente in 1:nrow(tabla_final)) {
+        # Obtener el valor único del campo NHC para la fila actual
+        nhc <- tabla_final$NHC[paciente]
+        
+        # Comprobar si el NHC ya existe en la base de datos
+        query <- paste('{"NHC": "', nhc, '"}', sep="")
+        if (ml$count(query) == 0) {
+          # Si no existe, insertar la fila completa
+          ml$insert(tabla_final[paciente, ])
+        } 
       }
-    )
-    
-    list_to_string <- function(x) {
-      if (is.list(x)) {
-        paste(x, collapse = ", ")
-      } else {
-        as.character(x)
-      }
-    }
-    
-    observeEvent(input$overwrite_btn, {
-      req(input$upload)  # Verifica que se haya seleccionado un archivo
-      
-      # Lee el contenido del archivo seleccionado
-      wb <- loadWorkbook(input$upload$datapath)
-      
-      tabla_final_texto <- lapply(tabla_final, function(col) {
-        if (is.list(col)) {
-          sapply(col, list_to_string)
-        } else {
-          col
-        }
-      })
-      addWorksheet(wb, "Nueva Hoja")
-      writeData(wb, "Nueva Hoja", tabla_final_texto, startCol = 1, startRow = 1)
-      
-      # Guarda el libro actualizado
-      saveWorkbook(wb, input$upload$datapath, overwrite = TRUE)
-      
-      # Muestra un mensaje de éxito
-      output$status <- renderText({
-        paste("Se ha añadido contenido al archivo:", input$upload$name)
-      })
+      ml$disconnect()
     })
+    
+    
 
   })
   

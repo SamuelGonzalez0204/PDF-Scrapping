@@ -1,6 +1,10 @@
 install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx","openxlsx"))
 install.packages("DT", repos = "http://cran.us.r-project.org")
 install.packages("shinyFiles")
+install.packages("DBI", "RSQLite")
+install.packages("mongolite")
+
+
 runApp("Shiny_App")
 
 #update.packages("shinyFiles")
@@ -8,10 +12,14 @@ runApp("Shiny_App")
 library(tools)
 library(pdftools)
 library(tidyverse)
+library(devtools)
 library(stringr)
 library(readxl)
 library(xlsx)
 library(openxlsx)
+library(DBI)
+library(RSQLite)
+library(mongolite)
 
 CarpetaEntrada <- "INPUT"
 CarpetaDatos <- "DATOS"
@@ -19,6 +27,7 @@ CarpetaInformes <- "INFORMES"
 CarpetaSalida <- "OUTPUT"
 CarpetaResultados <- "RESULTADOS"
 PathBase <- getwd()
+base_datos <- dbConnect(SQLite(), dbname = "TFG.sqlite")
 
 LeerFicherosPDF <- function(ruta) {
   ficheros <- list.files(path = ruta, pattern = "\\.pdf$", full.names = TRUE, recursive = TRUE)
@@ -267,6 +276,9 @@ for (ficheroPDF in ficheros) {
   genes_mut2 <- list()
 }
 
+
+
+
 for (lista in genes_mut_ordenados){
   num_mutaciones<- c(num_mutaciones, length(lista))
 }
@@ -311,7 +323,6 @@ for (ficheroPDF in ficheros) {
       
       for (a in strsplit(lines[posicion], " ")[[1]]) {
         if (grepl("Pathogeni", a)) {
-          print(paste(nombreFichero, " - Existe: ", mutacion, " - Pathogenic"))
 
           for (i in strsplit(lines[posicion], " ")[[1]]) {
             resultado <- str_match(i, patron_frecuencia)
@@ -465,6 +476,13 @@ tabla_final <- merge(tabla_unida2, T5, by = c("Número.de.chip", "Número.de.bio
 tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))
 tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
 
+mongo_url <- "mongodb://localhost:27017"  # URL de conexión a MongoDB
+collection_name <- "TFG"  # Nombre de la colección en la que se almacenará el dataframe
+ml <- mongo(collection_name, url = mongo_url)
+ml$insert(tabla_final)
+
+# Cerrar la conexión
+ml$disconnect()
 
 
 ####################################################
