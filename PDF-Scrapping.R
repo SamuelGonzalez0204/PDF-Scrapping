@@ -3,7 +3,8 @@ install.packages("DT", repos = "http://cran.us.r-project.org")
 install.packages("shinyFiles")
 install.packages("DBI", "RSQLite")
 install.packages("mongolite")
-
+install.packages("jsonlite")
+install.packages("rentrez")
 
 runApp("Shiny_App")
 
@@ -20,6 +21,7 @@ library(openxlsx)
 library(DBI)
 library(RSQLite)
 library(mongolite)
+library(rentrez)
 
 CarpetaEntrada <- "INPUT"
 CarpetaDatos <- "DATOS"
@@ -80,12 +82,13 @@ BuscarVariable <- function(lines, textoBuscar){
 }
 
 acotarTexto<-function(textoInicio, textoInicio2, linesTotal){
+  print(textoInicio)
   lines <- character()
   indices_inicio <- grep(textoInicio, linesTotal)
   indices_inicio2 <- grep(textoInicio2, linesTotal)
   indice_limite <- grep(textoLimite, linesTotal)
   indice_limite2 <- grep(textoLimite2, linesTotal)
-  if (length(indices_inicio2) != 0){
+  if (length(indices_inicio2) != 0 | length(indices_inicio)>1){
     if (length(indice_limite2) != 0){
       lines <- linesTotal[(indices_inicio + 1):(indice_limite2[1] - 1)]
     }else{
@@ -135,7 +138,7 @@ patron_sexo <- ".*Sexo:\\s*"
 patron_porcentaje_tumoral <- ".*% células tumorales:\\s"
 patron_calidad <- ".*CALIDAD DE LA MUESTRA /LIMITACIONES PARA SU ANÁLISIS:\\s"
 
-textoInicio<- "Detalles de la variante"
+textoInicio<- "Variantes de secuencia de ADN"
 textoInicio2<-"   Variaciones del número de copias"
 textoLimite <- "1 Basado en la versión ClinVar"
 textoLimite2 <-"Comentarios adicionales sobre las variantes"
@@ -217,64 +220,49 @@ pdf_files <- ficheros[grep("\\.pdf$", ficheros)]
 chip_match <- str_match(pdf_files, "v(\\d+)_")
 chip2 <- as.integer(chip_match[, 2])
 
+frecuencias_totales <-patogenicidad_ordenadas<- genes_mut_ordenados <- frecuencias_totales2 <- genes_mut_ordenados2 <-list()
+
 for (ficheroPDF in ficheros) {
+  #print(ficheroPDF)
   linesTotal <- LeerDocumento(ficheroPDF)
   lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-  total_mut <- 0
-  encontrados2 <- list()
-  lista_frec <- character()
-  for (mutacion in mutaciones) {
-    coincidencias <- character()
-    coincidencias <- grepl(mutacion, lines)
-    for (coincidencia in 1:length(coincidencias)){
-      if (coincidencias[coincidencia] == TRUE){
-        posicion <- coincidencia
-        
-        if (mutacion == "FGFR4") {
-          benigno2<-FALSE
-          for (a in strsplit(lines[posicion], " ")[[1]]) {
-            if ("p.(P136L)"==a) {
-              benigno2 <- TRUE
-            }
-          }
-          if (benigno2) {
-            next
-          }else{
-            total_mut <- total_mut + 1
-            encontrados2 <- c(encontrados2, mutacion)
-          }
-        } else {
-          benigno <- FALSE
-          for (a in strsplit(lines[posicion], " ")[[1]]) {
-            if (grepl("Benign", a) | grepl("benign", a)) {
-              benigno <- TRUE
-            }
-          }
-          if (!benigno) {
-            total_mut <- total_mut + 1
-            encontrados2 <- c(encontrados2, mutacion)
-            genes_mut2 <- c(genes_mut2,mutacion)
-            for (i in strsplit(lines[posicion], " ")[[1]]) {
-              resultado <- str_match(i, patron_frecuencia)
-              if (!is.na(resultado)) {
-                frec <- resultado[1]
-                lista_frec <- c(lista_frec, frec)
-              }
-            }
-          }
+  posiciones <- mutaciones_patogenicas <- lista_frec <- mutaciones_pdf <- patogenicidad <- c()
+  lines_divididas <- strsplit(lines, "\\s+")
+  for (line in lines_divididas){
+    if (length(grep(line[1], mutaciones))==1){
+      posiciones <- c(posiciones, grep(line[1], lines))
+      mutaciones_pdf <- c(mutaciones_pdf, line[1])
+      for (i in strsplit(line, " ")) {
+        print(i)
+        resultado <- str_match(i, patron_frecuencia)
+        print(resultado)
+        if (!is.na(resultado)) {
+          frec <- resultado[1]
+          lista_frec <- c(lista_frec, frec)
         }
       }
     }
-    
   }
-  
-  if (total_mut > max_mut) {
-    max_mut <- total_mut
+  for (pos in seq(1, length(posiciones))){
+    if (pos == length(posiciones)){
+      if (length(grep("pathogenicity", lines[posiciones[pos]:length(lines)])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:length(lines)])) == 1){
+        patogenicidad <- c(patogenicidad, "Pathogenic")
+      } else{
+          patogenicidad <- c(patogenicidad, " ")
+      }
+    } else if(length(grep("pathogenicity", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1){
+      patogenicidad <- c(patogenicidad, "Pathogenic")
+    }else{
+      patogenicidad <- c(patogenicidad, " ")
+    }
   }
+  genes_mut_ordenados <- c(genes_mut_ordenados, list(mutaciones_pdf))
+  patogenicidad_ordenadas <- c(patogenicidad_ordenadas, list(patogenicidad))
   frecuencias_totales <- c(frecuencias_totales, list(lista_frec))
-  genes_mut_ordenados <- c(genes_mut_ordenados, list(unlist(genes_mut2)))
-  genes_mut2 <- list()
+  #print(genes_mut_ordenados)
 }
+print(frecuencias_totales)
+print(genes_mut_ordenados)
 
 
 
@@ -447,25 +435,22 @@ cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
 
 
 T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
-                 'Número de biopsia' = NB_values, 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas)
-print(T1)
+                 'Número de biopsia' = NB_values, 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
+                 'diagnostico'= diagnostico, 'Sexo'=sexo, 'Porcentaje_tumoral'=porcentaje_tumoral, 'Calidad'=calidad)
 
 T2 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Diagnóstico' = textoDiag, 
                  'Número del diagnóstico' = numeroDiag)
-print(T2)
 
 T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = I(genes_mut_ordenados), 
                  'Número de la mutación específica' = I(numero_iden), 'Total del número de mutaciones' = unlist(num_mutaciones), 
-                 'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales), 'Fusiones ID' = I(fusiones))
-print(T3)
+                 'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales), 'Fusiones ID' = I(fusiones), 'Patogenicidad'=I(patogenicidad_ordenadas))
 
 T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = I(mutaciones_pato), 
                  'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato),
                  'Cambios' = I(cambiosPato), 'Total de mutaciones patogénicas' = I(num_mutacionesPato))
-print(T4)
+
 T5 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Ensayos clínicos' = lista_ensayos, 
                  'SI/NO ensayo' = ensayos_finales, 'Fármaco aprobado' = lista_tratamientos, 'SI/NO fármacos' = tratamientos_finales)
-
 
 tabla_unida <- merge(T1, T2, by = c("Número.de.chip", "Número.de.biopsia"), all=TRUE)
 print(tabla_unida)
@@ -519,4 +504,19 @@ for (i in seq_along(fragmentos)) {
   cat("Archivo", nombre_archivo, "guardado correctamente.\n")
 }
 
+#####################
+library(jsonlite)
+entrez_dbs()
+entrez_db_searchable(db = "clinvar")
+res <- entrez_search(db = "clinvar", term = "EGFR[gene]", retmax = 100)
+esums <- entrez_summary(db = "clinvar", id = res$ids[1:20])
+resumen <- extract_from_esummary(esums, "germline_classification")
+extract_from_esummary(esums, "title")
+for (i in resumen){
+  print("_____________")
+  print(i)
+  next
+}
+resumen[5]
 
+entrez_db_searchable(db = "Cbioportal")
