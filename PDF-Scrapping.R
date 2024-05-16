@@ -10,16 +10,16 @@ runApp("Shiny_App")
 
 #update.packages("shinyFiles")
 
-library(tools)
+##library(tools)
 library(pdftools)
 library(tidyverse)
-library(devtools)
-library(stringr)
+#library(devtools)
+#library(stringr)
 library(readxl)
 library(xlsx)
-library(openxlsx)
+#library(openxlsx)
 library(DBI)
-library(RSQLite)
+#library(RSQLite)
 library(mongolite)
 library(rentrez)
 
@@ -117,7 +117,7 @@ ficheros <- LeerFicherosPDF(rutaEntrada)
 
 NHC_Data <- Nbiopsia_Data <- fecha_Data <- texto_Data <- genes_mut2 <- genes_mut_ordenados <- frecuencias_totales <- num_mutaciones <- numero_iden <- 
   añadir <- cambiosPato <- frecuenciasPato <- mutaciones_pato <- patogen <- numero_iden_pato <- num_mutacionesPato <- 
-  diagnostico <- sexo <- porcentaje_tumoral <- calidad <- list()
+  diagnostico2 <- sexo <- porcentaje_tumoral <- calidad <- list()
 textoDiag <- NHC <- biopsia <- fechas <- chip2 <- fusiones <- character()
 numeroDiag <- lista_ensayos <- ensayos_finales <- lista_tratamientos <- tratamientos_finales <- numeric()
 
@@ -145,7 +145,7 @@ textoLimite2 <-"Comentarios adicionales sobre las variantes"
 
 for (ficheroPDF in ficheros){
   lines <- LeerDocumento(ficheroPDF)
-  diagnostico <- c(diagnostico, BuscarVariable(lines, patron_diagnostico))
+  diagnostico2 <- c(diagnostico2, BuscarVariable(lines, patron_diagnostico))
   sexo <- c(sexo, BuscarVariable(lines, patron_sexo))
   porcentaje_tumoral <- c(porcentaje_tumoral, BuscarVariable(lines, patron_porcentaje_tumoral))
   calidad <- c(calidad, BuscarVariable(lines, patron_calidad))
@@ -176,7 +176,7 @@ lista_resultante <- lapply(Nbiopsia_Data, function(sublist) {
 
 NB_values <- unlist(lista_resultante)
 
-biopsia<- sapply(lista_resultante, function(x) substr(x, 3,3))
+biopsia<- sapply(lista_resultante, function(x) substr(x, 5,5))
 
 Biopsia_solida <- character()
 Biopsia_solida <- ifelse(biopsia == "B", B,
@@ -217,8 +217,9 @@ tratamientos_finales <- as.integer(lista_tratamientos != 0)
 numero_paciente <- gsub("^.*Sample_(\\d+)_.*\\.pdf$", "\\1", ficheros)
 
 pdf_files <- ficheros[grep("\\.pdf$", ficheros)]
-chip_match <- str_match(pdf_files, "v(\\d+)_")
-chip2 <- as.integer(chip_match[, 2])
+#chip_match <- str_match(pdf_files, "v(\\d+)_")
+chip2 <- gsub(".*?([0-9]+\\.[0-9]+).*", "\\1", pdf_files)
+#chip2 <- as.integer(chip_match[, 2])
 
 frecuencias_totales <-patogenicidad_ordenadas<- genes_mut_ordenados <- frecuencias_totales2 <- genes_mut_ordenados2 <-list()
 
@@ -340,13 +341,13 @@ for (ficheroPDF in ficheros) {
   inicio <- FALSE
   lines <- character()
   for (line in linesTotal){
-    if (line == textoInicio | line == textoInicio2){
+    if (grepl(textoInicio, line) | grepl(textoInicio2, line)){
       inicio <- TRUE
-    }
-    if (line != textoLimite && inicio == TRUE){
-      lines <- c(lines,line)
-    }else if (line == textoLimite){
+    }else if (grepl(textoLimite, line) ){
       inicio <- FALSE
+    }
+    if (grepl(textoLimite, line)==FALSE && inicio == TRUE){
+      lines <- c(lines,line)
     }
   }
   for (mutacion in mutaciones){
@@ -435,8 +436,8 @@ cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
 
 
 T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
-                 'Número de biopsia' = NB_values, 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
-                 'diagnostico'= diagnostico, 'Sexo'=sexo, 'Porcentaje_tumoral'=porcentaje_tumoral, 'Calidad'=calidad)
+                  'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
+                 'diagnostico'= diagnostico, 'Sexo'=unlist(sexo), 'Porcentaje_tumoral'=porcentaje_tumoral, 'Calidad'=unlist(calidad))
 
 T2 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Diagnóstico' = textoDiag, 
                  'Número del diagnóstico' = numeroDiag)
@@ -506,6 +507,7 @@ for (i in seq_along(fragmentos)) {
 
 #####################
 library(jsonlite)
+
 entrez_dbs()
 entrez_db_searchable(db = "clinvar")
 res <- entrez_search(db = "clinvar", term = "EGFR[gene]", retmax = 100)
@@ -520,3 +522,4 @@ for (i in resumen){
 resumen[5]
 
 entrez_db_searchable(db = "Cbioportal")
+
