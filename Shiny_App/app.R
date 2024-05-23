@@ -190,7 +190,7 @@ server <- function(input, output) {
       indices_inicio2 <- grep(textoInicio2, linesTotal)
       indice_limite <- grep(textoLimite, linesTotal)
       indice_limite2 <- grep(textoLimite2, linesTotal)
-      if (length(indices_inicio2) != 0){
+      if (length(indices_inicio2) != 0 | length(indices_inicio)>1){
         if (length(indice_limite2) != 0){
           lines <- linesTotal[(indices_inicio + 1):(indice_limite2[1] - 1)]
         }else{
@@ -219,7 +219,7 @@ server <- function(input, output) {
     
     NHC_Data <- Nbiopsia_Data <- fecha_Data <- texto_Data <- genes_mut2 <- genes_mut_ordenados <- frecuencias_totales <- num_mutaciones <- numero_iden <- 
       añadir <- cambiosPato <- frecuenciasPato <- mutaciones_pato <- patogen <- numero_iden_pato <- num_mutacionesPato <-
-      diagnostico2 <- sexo <- porcentaje_tumoral <- calidad <- list()
+      diagnostico2 <- sexo <- porcentaje_tumoral <- calidad <- patogenicidad_buscadas <- cod_totales <-list()
     textoDiag <- NHC <- biopsia <- fechas <- chip2 <- fusiones <- character()
     numeroDiag <- lista_ensayos <- ensayos_finales <- lista_tratamientos <- tratamientos_finales <- numeric()
     
@@ -234,6 +234,7 @@ server <- function(input, output) {
     patron2 <- "(\\d+)\\s* Tratamientos disponibles"
     patron_frecuencia <- "\\d{2}\\.\\d{2}"
     patron_cambio <-"\\(.*?\\)"
+    patron_codificacion <- "c\\.[0-9]+[A-Za-z>_]+"
     
     patron_diagnostico <- ".*Diagnóstico:\\s"
     patron_sexo <- ".*Sexo:\\s*"
@@ -341,19 +342,23 @@ server <- function(input, output) {
       #print(ficheroPDF)
       linesTotal <- LeerDocumento(ficheroPDF)
       lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-      posiciones <- mutaciones_patogenicas <- lista_frec <- mutaciones_pdf <- patogenicidad <- c()
+      posiciones <- mutaciones_patogenicas <- lista_frec <- mutaciones_pdf <- patogenicidad <- lista_cod <- c()
       lines_divididas <- strsplit(lines, "\\s+")
+      print(lines)
       for (line in lines_divididas){
         if (length(grep(line[1], mutaciones))==1){
           posiciones <- c(posiciones, grep(line[1], lines))
           mutaciones_pdf <- c(mutaciones_pdf, line[1])
           for (i in strsplit(line, " ")) {
-            print(i)
             resultado <- str_match(i, patron_frecuencia)
-            print(resultado)
+            resultado2 <- str_match(i, patron_codificacion)
             if (!is.na(resultado)) {
               frec <- resultado[1]
               lista_frec <- c(lista_frec, frec)
+            }
+            else if (!is.na(resultado2)) {
+              cod <- resultado2[1]
+              lista_cod <- c(lista_cod, cod)
             }
           }
         }
@@ -374,11 +379,28 @@ server <- function(input, output) {
       genes_mut_ordenados <- c(genes_mut_ordenados, list(mutaciones_pdf))
       patogenicidad_ordenadas <- c(patogenicidad_ordenadas, list(patogenicidad))
       frecuencias_totales <- c(frecuencias_totales, list(lista_frec))
+      cod_totales <- c(cod_totales, list(lista_cod))
       #print(genes_mut_ordenados)
     }
     print(123214)
     
-    
+    for (lista in seq_along(patogenicidad_ordenadas)){
+      patogenicidad <- c()
+      for (elemento in seq_along(patogenicidad_ordenadas[[lista]])){
+        gen = paste(genes_mut_ordenados[[lista]][[elemento]], "[gene]", cod_totales[[lista]][[elemento]])
+        res <- entrez_search(db = "clinvar", term = gen)
+        if (length(res$ids)!=0){
+          esums <- entrez_summary(db = "clinvar", id = res$ids)
+          resumen <- extract_from_esummary(esums, "germline_classification")
+          print(genes_mut_ordenados[[lista]][[elemento]])
+          patogenicidad <- c(patogenicidad, resumen$description)
+        }
+        else{
+          patogenicidad <- c(patogenicidad, "Sin resultados")
+        }
+      }
+      patogenicidad_buscadas <- c(patogenicidad_buscadas, list(patogenicidad))
+    }
     
     for (lista in genes_mut_ordenados){
       num_mutaciones<- c(num_mutaciones, length(lista))
@@ -512,7 +534,8 @@ server <- function(input, output) {
     
     T3 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Mutaciones detectadas' = I(genes_mut_ordenados), 
                      'Número de la mutación específica' = I(numero_iden), 'Total del número de mutaciones' = unlist(num_mutaciones), 
-                     'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales), 'Fusiones ID' = I(fusiones), 'Patogenicidad'=I(patogenicidad_ordenadas))
+                     'Porcentaje de frecuencia alélica (ADN)' = I(frecuencias_totales), 'Fusiones ID' = I(fusiones), 
+                     'Patogenicidad'=I(patogenicidad_ordenadas), 'Patogenicidad Buscada' = I(patogenicidad_buscadas))
     
     T4 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Genes patogénicos' = I(mutaciones_pato), 
                      'Número de la mutación específica' = I(numero_iden_pato), '% frecuencia alélica' = I(frecuenciasPato),
