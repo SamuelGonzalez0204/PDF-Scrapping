@@ -6,7 +6,7 @@ Autor: Samuel González Martín.
 
 Tutor: Antonio Jesús Canepa Oneto.
 
-Año: 2023-2024
+Año: 2023-2024.
 
 # Introducción
 
