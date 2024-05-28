@@ -86,6 +86,7 @@ acotarTexto<-function(textoInicio, textoInicio2, linesTotal){
   lines <- character()
   indices_inicio <- grep(textoInicio, linesTotal)
   indices_inicio2 <- grep(textoInicio2, linesTotal)
+  print(indices_inicio2)
   indice_limite <- grep(textoLimite, linesTotal)
   indice_limite2 <- grep(textoLimite2, linesTotal)
   if (length(indices_inicio2) != 0 | length(indices_inicio)>1){
@@ -132,6 +133,7 @@ patron <- "(\\d+)\\s* Ensayos clínicos"
 patron2 <- "(\\d+)\\s* Tratamientos disponibles"
 patron_frecuencia <- "\\d{2}\\.\\d{2}"
 patron_cambio <-"\\(.*?\\)"
+patron_codificacion <- "c\\.[0-9]+[A-Za-z>_]+"
 
 patron_diagnostico <- ".*Diagnóstico:\\s"
 patron_sexo <- ".*Sexo:\\s*"
@@ -221,25 +223,29 @@ pdf_files <- ficheros[grep("\\.pdf$", ficheros)]
 chip2 <- gsub(".*?([0-9]+\\.[0-9]+).*", "\\1", pdf_files)
 #chip2 <- as.integer(chip_match[, 2])
 
-frecuencias_totales <-patogenicidad_ordenadas<- genes_mut_ordenados <- frecuencias_totales2 <- genes_mut_ordenados2 <-list()
+cod_totales <- frecuencias_totales <-patogenicidad_ordenadas<- genes_mut_ordenados <- frecuencias_totales2 <- genes_mut_ordenados2 <-list()
 
 for (ficheroPDF in ficheros) {
   #print(ficheroPDF)
   linesTotal <- LeerDocumento(ficheroPDF)
   lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-  posiciones <- mutaciones_patogenicas <- lista_frec <- mutaciones_pdf <- patogenicidad <- c()
+  posiciones <- mutaciones_patogenicas <- lista_frec <- mutaciones_pdf <- patogenicidad <- lista_cod <- c()
   lines_divididas <- strsplit(lines, "\\s+")
+  print(lines)
   for (line in lines_divididas){
     if (length(grep(line[1], mutaciones))==1){
       posiciones <- c(posiciones, grep(line[1], lines))
       mutaciones_pdf <- c(mutaciones_pdf, line[1])
       for (i in strsplit(line, " ")) {
-        print(i)
         resultado <- str_match(i, patron_frecuencia)
-        print(resultado)
+        resultado2 <- str_match(i, patron_codificacion)
         if (!is.na(resultado)) {
           frec <- resultado[1]
           lista_frec <- c(lista_frec, frec)
+        }
+        else if (!is.na(resultado2)) {
+          cod <- resultado2[1]
+          lista_cod <- c(lista_cod, cod)
         }
       }
     }
@@ -249,7 +255,7 @@ for (ficheroPDF in ficheros) {
       if (length(grep("pathogenicity", lines[posiciones[pos]:length(lines)])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:length(lines)])) == 1){
         patogenicidad <- c(patogenicidad, "Pathogenic")
       } else{
-          patogenicidad <- c(patogenicidad, " ")
+        patogenicidad <- c(patogenicidad, " ")
       }
     } else if(length(grep("pathogenicity", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1){
       patogenicidad <- c(patogenicidad, "Pathogenic")
@@ -260,12 +266,30 @@ for (ficheroPDF in ficheros) {
   genes_mut_ordenados <- c(genes_mut_ordenados, list(mutaciones_pdf))
   patogenicidad_ordenadas <- c(patogenicidad_ordenadas, list(patogenicidad))
   frecuencias_totales <- c(frecuencias_totales, list(lista_frec))
+  cod_totales <- c(cod_totales, list(lista_cod))
   #print(genes_mut_ordenados)
 }
 print(frecuencias_totales)
 print(genes_mut_ordenados)
 
-
+patogenicidad_buscadas <- c()
+for (lista in seq_along(patogenicidad_ordenadas)){
+  patogenicidad <- c()
+  for (elemento in seq_along(patogenicidad_ordenadas[[lista]])){
+    gen = paste(genes_mut_ordenados[[lista]][[elemento]], "[gene]", cod_totales[[lista]][[elemento]])
+    res <- entrez_search(db = "clinvar", term = gen)
+    if (length(res$ids)!=0){
+      esums <- entrez_summary(db = "clinvar", id = res$ids)
+      resumen <- extract_from_esummary(esums, "germline_classification")
+      print(genes_mut_ordenados[[lista]][[elemento]])
+      patogenicidad <- c(patogenicidad, resumen$description)
+    }
+    else{
+      patogenicidad <- c(patogenicidad, "Sin resultados")
+    }
+  }
+  patogenicidad_buscadas <- c(patogenicidad_buscadas, list(patogenicidad))
+}
 
 
 for (lista in genes_mut_ordenados){
@@ -309,20 +333,20 @@ for (ficheroPDF in ficheros) {
     for (coincidencia in 1:length(coincidencias)){
       if (coincidencias[coincidencia] == TRUE){
         posicion <- coincidencia
-      
-      for (a in strsplit(lines[posicion], " ")[[1]]) {
-        if (grepl("Pathogeni", a)) {
-
-          for (i in strsplit(lines[posicion], " ")[[1]]) {
-            resultado <- str_match(i, patron_frecuencia)
-            resultado2 <- str_match(i, patron_cambio)
-            if (!is.na(resultado)) {
-              frec <- resultado[1]
-              lista_frec <- c(lista_frec, frec)
+        
+        for (a in strsplit(lines[posicion], " ")[[1]]) {
+          if (grepl("Pathogeni", a)) {
+            
+            for (i in strsplit(lines[posicion], " ")[[1]]) {
+              resultado <- str_match(i, patron_frecuencia)
+              resultado2 <- str_match(i, patron_cambio)
+              if (!is.na(resultado)) {
+                frec <- resultado[1]
+                lista_frec <- c(lista_frec, frec)
               }
-            if (!is.na(resultado2)) {
-              cambio <- resultado2[1]
-              lista_cambio <- c(lista_cambio, cambio)
+              if (!is.na(resultado2)) {
+                cambio <- resultado2[1]
+                lista_cambio <- c(lista_cambio, cambio)
               }
             }
           }
@@ -436,7 +460,7 @@ cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
 
 
 T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
-                  'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
+                 'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
                  'diagnostico'= diagnostico, 'Sexo'=unlist(sexo), 'Porcentaje_tumoral'=porcentaje_tumoral, 'Calidad'=unlist(calidad))
 
 T2 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Diagnóstico' = textoDiag, 
@@ -462,13 +486,7 @@ tabla_final <- merge(tabla_unida2, T5, by = c("Número.de.chip", "Número.de.bio
 tabla_unida3 <- merge(tabla_unida, T4, by = c("Número.de.chip", "Número.de.biopsia"))
 tabla_final_pato <- merge(tabla_unida3, T5, by = c("Número.de.chip", "Número.de.biopsia"))
 
-mongo_url <- "mongodb://localhost:27017"  # URL de conexión a MongoDB
-collection_name <- "TFG"  # Nombre de la colección en la que se almacenará el dataframe
-ml <- mongo(collection_name, url = mongo_url)
-ml$insert(tabla_final)
 
-# Cerrar la conexión
-ml$disconnect()
 
 
 ####################################################
@@ -510,16 +528,41 @@ library(jsonlite)
 
 entrez_dbs()
 entrez_db_searchable(db = "clinvar")
-res <- entrez_search(db = "clinvar", term = "EGFR[gene]", retmax = 100)
-esums <- entrez_summary(db = "clinvar", id = res$ids[1:20])
+res <- entrez_search(db = "clinvar", term = "CTNNB1 [gene]   c.134C>T", retmax = 100)
+
+res <- entrez_search(db = "clinvar", term = "BRAF [gene]  c.1789_1790delCTinsT", retmax = 100)
+print(length(res$ids))
+esums <- entrez_summary(db = "clinvar", id = res$ids)
 resumen <- extract_from_esummary(esums, "germline_classification")
-extract_from_esummary(esums, "title")
-for (i in resumen){
-  print("_____________")
-  print(i)
-  next
-}
+print(resumen$description)
+extract_from_esummary(esums, "germline_classification")[1:3]
+descriptions <- lapply(resumen, function(x) x[[1]])
+print(descriptions)
+
 resumen[5]
+print(length(resumen[[1]]))
 
 entrez_db_searchable(db = "Cbioportal")
+##########################
+install.packages("processx")
+library(processx)
+library(mongolite)
+path_to_mongod <- "C:\\Program Files\\MongoDB\\Server\\7.0\\bin\\mongod.exe"
+db_path <- "C:\\data\\db"
+
+mongo_process <- processx::process$new(path_to_mongod, c("--dbpath", db_path))
+
+if (mongo_process$is_alive()) {
+  cat("MongoDB server started successfully.\n")
+} else {
+  cat("Failed to start MongoDB server.\n")
+}
+
+mongo_url <- "mongodb://localhost:27017"  # URL de conexión a MongoDB
+collection_name <- "TFG"  # Nombre de la colección en la que se almacenará el dataframe
+mongo_conn <- mongo(collection_name, url = "mongodb://localhost:27017/")
+cooml$insert(tabla_final)
+
+# Cerrar la conexión
+ml$disconnect()
 

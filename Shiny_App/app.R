@@ -86,8 +86,8 @@ ui <- fluidPage(
           textOutput("status"),
           tabsetPanel(
             id = "tabset",
-            tabPanel("tabla final", DTOutput("pdf_content_output")),
-            tabPanel("tabla final pato", DTOutput("pdf_content_output2"))
+            tabPanel("Genes mutados", DTOutput("pdf_content_output")),
+            tabPanel("Genes patogénicos", DTOutput("pdf_content_output2"))
           )
         )
       )
@@ -108,6 +108,8 @@ server <- function(input, output) {
     library(readxl)
     library(openxlsx)
     library(mongolite)
+    library(processx)
+    library(rentrez)
     
     
     CarpetaEntrada <- "INPUT"
@@ -610,6 +612,11 @@ server <- function(input, output) {
    
     
     observeEvent(input$subir, {
+      path_to_mongod <- "C:\\Program Files\\MongoDB\\Server\\7.0\\bin\\mongod.exe"
+      db_path <- "C:\\data\\db"
+      mongo_process <- processx::process$new(path_to_mongod, c("--dbpath", db_path))
+      Sys.sleep(5)
+      
       mongo_url <- "mongodb://localhost:27017"
       collection_name <- "TFG"
       ml <- mongo(collection_name, url = mongo_url)
