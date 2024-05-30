@@ -412,6 +412,17 @@ server <- function(input, output) {
       añadir <- list()
     }
     
+    for (lista in seq_along(patogenicidad_ordenadas)){
+      patogenicidad <- c()
+      genpato2 <- c()
+      for (elemento in seq_along(patogenicidad_ordenadas[[lista]])){
+        if (patogenicidad_ordenadas[[lista]][[elemento]] == "Pathogenic"){
+          genpato2 <- c(genpato2, genes_mut_ordenados[[lista]][[elemento]])
+        }
+      }
+      mutaciones_pato <- append(mutaciones_pato, list(genpato2))
+    }
+    
     for (ficheroPDF in ficheros) {
       lines <- LeerDocumento(file.path(ficheroPDF))
       variantes <- character()
@@ -435,26 +446,26 @@ server <- function(input, output) {
       lista_cambio <- list()
       linesTotal <- LeerDocumento(ficheroPDF)
       lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-      for (mutacion in mutaciones){
-        coincidencias <- character()
-        coincidencias <- grepl(mutacion, lines)
-        for (coincidencia in 1:length(coincidencias)){
-          if (coincidencias[coincidencia] == TRUE){
-            posicion <- coincidencia
-          
-          for (a in strsplit(lines[posicion], " ")[[1]]) {
-            if (grepl("Pathogeni", a)) {
-    
-              for (i in strsplit(lines[posicion], " ")[[1]]) {
-                resultado <- str_match(i, patron_frecuencia)
-                resultado2 <- str_match(i, patron_cambio)
-                if (!is.na(resultado)) {
-                  frec <- resultado[1]
-                  lista_frec <- c(lista_frec, frec)
+      for (mutaciones in mutaciones_pato){
+        for (mutacion in mutaciones){
+          print(mutacion)
+          coincidencias <- character()
+          if (!is.null(mutacion)){
+            coincidencias <- grepl(mutacion, lines)
+            for (coincidencia in 1:length(coincidencias)){
+              if (coincidencias[coincidencia] == TRUE){
+                posicion <- coincidencia
+                
+                for (i in strsplit(lines[posicion], " ")[[1]]) {
+                  resultado <- str_match(i, patron_frecuencia)
+                  resultado2 <- str_match(i, patron_cambio)
+                  if (!is.na(resultado)) {
+                    frec <- resultado[1]
+                    lista_frec <- c(lista_frec, frec)
                   }
-                if (!is.na(resultado2)) {
-                  cambio <- resultado2[1]
-                  lista_cambio <- c(lista_cambio, cambio)
+                  if (!is.na(resultado2)) {
+                    cambio <- resultado2[1]
+                    lista_cambio <- c(lista_cambio, cambio)
                   }
                 }
               }
@@ -466,41 +477,44 @@ server <- function(input, output) {
       cambiosPato<- append(cambiosPato, list(unlist(lista_cambio)))
     }
     
-    for (ficheroPDF in ficheros) {
-      nombreFichero <- file.path(ficheroPDF)
-      linesTotal <- LeerDocumento(nombreFichero)
-      genpato2 <- list()
-      inicio <- FALSE
-      lines <- character()
-      for (line in linesTotal){
-        if (grepl(textoInicio, line) | grepl(textoInicio2, line)){
-          inicio <- TRUE
-        }else if (grepl(textoLimite, line) ){
-          inicio <- FALSE
-        }
-        if (grepl(textoLimite, line)==FALSE && inicio == TRUE){
-          lines <- c(lines,line)
-        }
-      }
-      for (mutacion in mutaciones){
-        coincidencias <- character()
-        coincidencias <- grepl(mutacion, lines)
-        for (coincidencia in 1:length(coincidencias)){
-          if (coincidencias[coincidencia] == TRUE){
-            posicion <- coincidencia
-            
-            for (a in strsplit(lines[posicion], " ")[[1]]) {
-              if (grepl("Pathogeni", a)) {
-                genpato2 <- c(genpato2, mutacion)
-              }
-            }
-          }
-        }
-      }
-      
-      patogen[[ficheroPDF]] <- genpato2
-      mutaciones_pato <- append(mutaciones_pato, list(genpato2))
-    }
+    #
+#    for (ficheroPDF in ficheros) {
+#      nombreFichero <- file.path(ficheroPDF)
+#      linesTotal <- LeerDocumento(nombreFichero)
+#      genpato2 <- list()
+#      inicio <- FALSE
+#      lines <- character()
+#      for (line in linesTotal){
+#        if (grepl(textoInicio, line) | grepl(textoInicio2, line)){
+#          inicio <- TRUE
+#        }else if (grepl(textoLimite, line) ){
+#          inicio <- FALSE
+#        }
+#        if (grepl(textoLimite, line)==FALSE && inicio == TRUE){
+#          lines <- c(lines,line)
+#        }
+#      }
+#      for (mutacion in mutaciones){
+#        coincidencias <- character()
+#        coincidencias <- grepl(mutacion, lines)
+#        for (coincidencia in 1:length(coincidencias)){
+#          if (coincidencias[coincidencia] == TRUE){
+#            posicion <- coincidencia
+#            
+#            for (a in strsplit(lines[posicion], " ")[[1]]) {
+#              if (grepl("Pathogeni", a)) {
+#                genpato2 <- c(genpato2, mutacion)
+#              }
+#            }
+#          }
+#        }
+#      }
+#      
+#      patogen[[ficheroPDF]] <- genpato2
+#      mutaciones_pato <- append(mutaciones_pato, list(genpato2))
+#    }
+    
+    
     
     for (i in mutaciones_pato) {
       valores <- sapply(i, function(gen) ifelse(is.null(mutaciones_dic[[gen]]), 0, mutaciones_dic[[gen]]))

@@ -291,6 +291,18 @@ for (lista in seq_along(patogenicidad_ordenadas)){
   patogenicidad_buscadas <- c(patogenicidad_buscadas, list(patogenicidad))
 }
 
+mutaciones_pato <-c()
+for (lista in seq_along(patogenicidad_ordenadas)){
+  patogenicidad <- c()
+  genpato2 <- c()
+  for (elemento in seq_along(patogenicidad_ordenadas[[lista]])){
+    if (patogenicidad_ordenadas[[lista]][[elemento]] == "Pathogenic"){
+    genpato2 <- c(genpato2, genes_mut_ordenados[[lista]][[elemento]])
+    }
+  }
+  mutaciones_pato <- append(mutaciones_pato, list(genpato2))
+}
+
 
 for (lista in genes_mut_ordenados){
   num_mutaciones<- c(num_mutaciones, length(lista))
