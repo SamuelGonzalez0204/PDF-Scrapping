@@ -265,9 +265,6 @@ server <- function(input, output) {
       calidad <- c(calidad, BuscarVariable(lines, patron_calidad))
       
     }
-    print("---------------------------------------------------------------------------")
-    print(diagnostico2)
-    print("--------------------------------------------------------------------------")
     
     for (ficheroPDF in ficheros) {
       lines <- LeerDocumento(ficheroPDF)
@@ -384,7 +381,6 @@ server <- function(input, output) {
       cod_totales <- c(cod_totales, list(lista_cod))
       #print(genes_mut_ordenados)
     }
-    print(123214)
     
     for (lista in seq_along(patogenicidad_ordenadas)){
       patogenicidad <- c()
@@ -433,7 +429,7 @@ server <- function(input, output) {
       }
       fusiones <- append(fusiones, list(variantes))
     }
-    print(21432543253)
+    
     for (ficheroPDF in ficheros) {
       lista_frec <- list()
       lista_cambio <- list()
@@ -517,15 +513,13 @@ server <- function(input, output) {
     
     genes_mut_ordenados <- lapply(genes_mut_ordenados, function(x) if(length(x) == 0) NA else x)
     frecuencias_totales <- lapply(frecuencias_totales, function(x) if(length(x) == 0) NA else x)
-    print(length(frecuencias_totales))
     fusiones <- lapply(fusiones, function(x) if(length(x) == 0) NA else x)
     numero_iden <- lapply(numero_iden, function(x) if(length(x) == 0) NA else x)
     mutaciones_pato <- lapply(mutaciones_pato, function(x) if(length(x) == 0) NA else x)
     frecuenciasPato <- lapply(frecuenciasPato, function(x) if(length(x) == 0) NA else x)
     numero_iden_pato <- lapply(numero_iden_pato, function(x) if(length(x) == 0) NA else x)
     cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
-    print(2313414)
-    print(unlist(diagnostico2))
+
     
     T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
                     'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
@@ -618,19 +612,26 @@ server <- function(input, output) {
       Sys.sleep(5)
       
       mongo_url <- "mongodb://localhost:27017"
-      collection_name <- "TFG"
+      collection_name <- "Totales"
+      collection_name_pato <- "Patogenicas"
       ml <- mongo(collection_name, url = mongo_url)
+      ml_pato <- mongo(collection_name_pato, url = mongo_url)
+      
       for (paciente in 1:nrow(tabla_final)) {
-        # Obtener el valor único del campo NHC para la fila actual
         nhc <- tabla_final$NHC[paciente]
-        
-        # Comprobar si el NHC ya existe en la base de datos
         query <- paste('{"NHC": "', nhc, '"}', sep="")
         if (ml$count(query) == 0) {
-          # Si no existe, insertar la fila completa
           ml$insert(tabla_final[paciente, ])
         } 
       }
+      for (paciente in 1:nrow(tabla_final_pato)) {
+        nhc <- tabla_final_pato$NHC[paciente]
+        query <- paste('{"NHC": "', nhc, '"}', sep="")
+        if (ml_pato$count(query) == 0) {
+          ml_pato$insert(tabla_final_pato[paciente, ])
+        } 
+      }
+      print("guardados")
       ml$disconnect()
     })
     
