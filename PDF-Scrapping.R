@@ -334,21 +334,23 @@ for (ficheroPDF in ficheros) {
   fusiones <- append(fusiones, list(variantes))
 }
 
+frecuenciasPato <- c()
+cambiosPato<-c()
 for (ficheroPDF in ficheros) {
   lista_frec <- list()
   lista_cambio <- list()
   linesTotal <- LeerDocumento(ficheroPDF)
   lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-  for (mutacion in mutaciones){
-    coincidencias <- character()
-    coincidencias <- grepl(mutacion, lines)
-    for (coincidencia in 1:length(coincidencias)){
-      if (coincidencias[coincidencia] == TRUE){
-        posicion <- coincidencia
-        
-        for (a in strsplit(lines[posicion], " ")[[1]]) {
-          if (grepl("Pathogeni", a)) {
-            
+  for (mutaciones in mutaciones_pato){
+    for (mutacion in mutaciones){
+      print(mutacion)
+      coincidencias <- character()
+      if (!is.null(mutacion)){
+        coincidencias <- grepl(mutacion, lines)
+        for (coincidencia in 1:length(coincidencias)){
+          if (coincidencias[coincidencia] == TRUE){
+            posicion <- coincidencia
+                
             for (i in strsplit(lines[posicion], " ")[[1]]) {
               resultado <- str_match(i, patron_frecuencia)
               resultado2 <- str_match(i, patron_cambio)

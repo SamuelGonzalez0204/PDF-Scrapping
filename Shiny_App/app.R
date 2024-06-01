@@ -232,6 +232,8 @@ server <- function(input, output) {
     C <- "3"
     P <- "2"
     
+    # Variables de busqueda de datos
+    
     patron <- "(\\d+)\\s* Ensayos clínicos"
     patron2 <- "(\\d+)\\s* Tratamientos disponibles"
     patron_frecuencia <- "\\d{2}\\.\\d{2}"
@@ -247,6 +249,8 @@ server <- function(input, output) {
     textoInicio2<-"   Variaciones del número de copias"
     textoLimite <- "1 Basado en la versión ClinVar"
     textoLimite2 <-"Comentarios adicionales sobre las variantes"
+    
+    #
     
     ficheroDiagnostico <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Diagnostico.xlsx")
     diagnostico <- read_excel(ficheroDiagnostico)
