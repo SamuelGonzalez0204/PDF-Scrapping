@@ -15,19 +15,19 @@ library(DT)
 
 
 ui <- fluidPage(
-    tags$head(
-      tags$script(
-        HTML("
+  tags$head(
+    tags$script(
+      HTML("
         $(document).keypress(function(event) {
           if (event.which == 32) { // 32 es el código ASCII para la barra espaciadora
             $('#splash').fadeOut('slow'); // Oculta el splash
           }
         });
       ")
-      )
-    ),
-    tags$style(
-      "
+    )
+  ),
+  tags$style(
+    "
     #splash {
       position: fixed;
       top: 0;
@@ -48,17 +48,17 @@ ui <- fluidPage(
       max-height: 100%; /* Ajusta la altura máxima del logo */
     }
     "
-    ),
-    div(id = "splash",
-        div(id = "splash-content",
-            h1("¡Presiona espacio para comenzar!"),
-            img(src = "logoInicio2.png", alt = "Logo")
-        )
-    ),
-    conditionalPanel(
-      condition = "!(document.getElementById('splash').style.display === 'flex')",
-      fluidPage(
-  
+  ),
+  div(id = "splash",
+      div(id = "splash-content",
+          h1("¡Presiona espacio para comenzar!"),
+          img(src = "logoInicio2.png", alt = "Logo")
+      )
+  ),
+  conditionalPanel(
+    condition = "!(document.getElementById('splash').style.display === 'flex')",
+    fluidPage(
+      
       titlePanel(
         img(src = "LogoSACYL.png", align = "left", height = 40, width = 300),
         #img(src = "LogoUBU.png", align = "right", height = 50, width = 100)
@@ -94,7 +94,7 @@ ui <- fluidPage(
     )
   )
 )
-        
+
 
 server <- function(input, output) {
   
@@ -190,19 +190,23 @@ server <- function(input, output) {
       lines <- character()
       indices_inicio <- grep(textoInicio, linesTotal)
       indices_inicio2 <- grep(textoInicio2, linesTotal)
-      indice_limite <- grep(textoLimite, linesTotal)
+      indice_limite <- grep(textoLimite, linesTotal)[1]
       indice_limite2 <- grep(textoLimite2, linesTotal)
       if (length(indices_inicio2) != 0 | length(indices_inicio)>1){
         if (length(indice_limite2) != 0){
           lines <- linesTotal[(indices_inicio + 1):(indice_limite2[1] - 1)]
         }else{
-          lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+          lines <- linesTotal[(indices_inicio2 + 1):(indice_limite - 1)]
         }
+      }
+      else if (length(indices_inicio2) == 0 && length(indices_inicio) == 0){
+        lines <- c(lines, "Sin biomarcadores")
       }else{
-        lines <- linesTotal[(indices_inicio + 1):(indice_limite[1] - 1)]
+        lines <- linesTotal[(indices_inicio + 1):(indice_limite - 1)]
       }
       return(lines)
     }
+    
     
     ficheroDiagnostico <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Diagnostico.xlsx")
     diagnostico <- read_excel(ficheroDiagnostico)
@@ -232,8 +236,6 @@ server <- function(input, output) {
     C <- "3"
     P <- "2"
     
-    # Variables de busqueda de datos
-    
     patron <- "(\\d+)\\s* Ensayos clínicos"
     patron2 <- "(\\d+)\\s* Tratamientos disponibles"
     patron_frecuencia <- "\\d{2}\\.\\d{2}"
@@ -247,10 +249,8 @@ server <- function(input, output) {
     
     textoInicio<- "Variantes de secuencia de ADN"
     textoInicio2<-"   Variaciones del número de copias"
-    textoLimite <- "1 Basado en la versión ClinVar"
+    textoLimite <- "Genes analizados"
     textoLimite2 <-"Comentarios adicionales sobre las variantes"
-    
-    #
     
     ficheroDiagnostico <- file.path(PathBase, CarpetaEntrada, CarpetaDatos, "Diagnostico.xlsx")
     diagnostico <- read_excel(ficheroDiagnostico)
@@ -280,15 +280,21 @@ server <- function(input, output) {
     
     textoDiag <- sapply(texto_Data, function(x) unique(x)[1])
     
+    
     for (diagnostico in textoDiag) {
-      valor <- diagnosticos_dic[[diagnostico]]
-      numeroDiag <- c(numeroDiag, valor)
+      if (diagnostico %in% names(diagnosticos_dic)){
+        valor <- diagnosticos_dic[[diagnostico]]
+        numeroDiag <- c(numeroDiag, valor)
+      }
+      else{
+        numeroDiag <- c(numeroDiag, " ")
+      }
     }
     
     NHC <- sapply(NHC_Data, function(x) unique(x)[1])
     
     lista_resultante <- lapply(Nbiopsia_Data, function(sublist) {
-      sublist_sin_duplicados <- sublist[!duplicated(sublist)]
+      sublist_sin_duplicados <- sublist[1]
       sublist_sin_duplicados
     })
     
@@ -338,9 +344,10 @@ server <- function(input, output) {
     #chip_match <- str_match(pdf_files, "v(\\d+)_")
     chip2 <- gsub(".*?([0-9]+\\.[0-9]+).*", "\\1", pdf_files)
     #chip2 <- as.integer(chip_match[, 2])
-
+    
     frecuencias_totales <-patogenicidad_ordenadas<- genes_mut_ordenados <- frecuencias_totales2 <- genes_mut_ordenados2 <-list()
-
+    
+    print(123)
     for (ficheroPDF in ficheros) {
       #print(ficheroPDF)
       linesTotal <- LeerDocumento(ficheroPDF)
@@ -366,17 +373,19 @@ server <- function(input, output) {
           }
         }
       }
-      for (pos in seq(1, length(posiciones))){
-        if (pos == length(posiciones)){
-          if (length(grep("pathogenicity", lines[posiciones[pos]:length(lines)])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:length(lines)])) == 1){
+      if (length(posiciones)!= 0){
+        for (pos in seq(1, length(posiciones))){
+          if (pos == length(posiciones)){
+            if (length(grep("pathogenicity", lines[posiciones[pos]:length(lines)])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:length(lines)])) == 1){
+              patogenicidad <- c(patogenicidad, "Pathogenic")
+            } else{
+              patogenicidad <- c(patogenicidad, " ")
+            }
+          } else if(length(grep("pathogenicity", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1){
             patogenicidad <- c(patogenicidad, "Pathogenic")
-          } else{
+          }else{
             patogenicidad <- c(patogenicidad, " ")
           }
-        } else if(length(grep("pathogenicity", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1){
-          patogenicidad <- c(patogenicidad, "Pathogenic")
-        }else{
-          patogenicidad <- c(patogenicidad, " ")
         }
       }
       genes_mut_ordenados <- c(genes_mut_ordenados, list(mutaciones_pdf))
@@ -386,13 +395,14 @@ server <- function(input, output) {
       #print(genes_mut_ordenados)
     }
     
+    print(1234)
     for (lista in seq_along(patogenicidad_ordenadas)){
       patogenicidad <- c()
       for (elemento in seq_along(patogenicidad_ordenadas[[lista]])){
         gen = paste(genes_mut_ordenados[[lista]][[elemento]], "[gene]", cod_totales[[lista]][[elemento]])
         res <- entrez_search(db = "clinvar", term = gen)
         if (length(res$ids)!=0){
-          esums <- entrez_summary(db = "clinvar", id = res$ids)
+          esums <- entrez_summary(db = "clinvar", id = res$ids[1])
           resumen <- extract_from_esummary(esums, "germline_classification")
           print(genes_mut_ordenados[[lista]][[elemento]])
           patogenicidad <- c(patogenicidad, resumen$description)
@@ -482,41 +492,41 @@ server <- function(input, output) {
     }
     
     #
-#    for (ficheroPDF in ficheros) {
-#      nombreFichero <- file.path(ficheroPDF)
-#      linesTotal <- LeerDocumento(nombreFichero)
-#      genpato2 <- list()
-#      inicio <- FALSE
-#      lines <- character()
-#      for (line in linesTotal){
-#        if (grepl(textoInicio, line) | grepl(textoInicio2, line)){
-#          inicio <- TRUE
-#        }else if (grepl(textoLimite, line) ){
-#          inicio <- FALSE
-#        }
-#        if (grepl(textoLimite, line)==FALSE && inicio == TRUE){
-#          lines <- c(lines,line)
-#        }
-#      }
-#      for (mutacion in mutaciones){
-#        coincidencias <- character()
-#        coincidencias <- grepl(mutacion, lines)
-#        for (coincidencia in 1:length(coincidencias)){
-#          if (coincidencias[coincidencia] == TRUE){
-#            posicion <- coincidencia
-#            
-#            for (a in strsplit(lines[posicion], " ")[[1]]) {
-#              if (grepl("Pathogeni", a)) {
-#                genpato2 <- c(genpato2, mutacion)
-#              }
-#            }
-#          }
-#        }
-#      }
-#      
-#      patogen[[ficheroPDF]] <- genpato2
-#      mutaciones_pato <- append(mutaciones_pato, list(genpato2))
-#    }
+    #    for (ficheroPDF in ficheros) {
+    #      nombreFichero <- file.path(ficheroPDF)
+    #      linesTotal <- LeerDocumento(nombreFichero)
+    #      genpato2 <- list()
+    #      inicio <- FALSE
+    #      lines <- character()
+    #      for (line in linesTotal){
+    #        if (grepl(textoInicio, line) | grepl(textoInicio2, line)){
+    #          inicio <- TRUE
+    #        }else if (grepl(textoLimite, line) ){
+    #          inicio <- FALSE
+    #        }
+    #        if (grepl(textoLimite, line)==FALSE && inicio == TRUE){
+    #          lines <- c(lines,line)
+    #        }
+    #      }
+    #      for (mutacion in mutaciones){
+    #        coincidencias <- character()
+    #        coincidencias <- grepl(mutacion, lines)
+    #        for (coincidencia in 1:length(coincidencias)){
+    #          if (coincidencias[coincidencia] == TRUE){
+    #            posicion <- coincidencia
+    #            
+    #            for (a in strsplit(lines[posicion], " ")[[1]]) {
+    #              if (grepl("Pathogeni", a)) {
+    #                genpato2 <- c(genpato2, mutacion)
+    #              }
+    #            }
+    #          }
+    #        }
+    #      }
+    #      
+    #      patogen[[ficheroPDF]] <- genpato2
+    #      mutaciones_pato <- append(mutaciones_pato, list(genpato2))
+    #    }
     
     
     
@@ -537,10 +547,10 @@ server <- function(input, output) {
     frecuenciasPato <- lapply(frecuenciasPato, function(x) if(length(x) == 0) NA else x)
     numero_iden_pato <- lapply(numero_iden_pato, function(x) if(length(x) == 0) NA else x)
     cambiosPato <- lapply(cambiosPato, function(x) if(length(x) == 0) NA else x)
-
+    
     
     T1 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'NHC' = NHC, 
-                    'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
+                     'Biopsia sólida' = Biopsia_solida, 'Fecha de informe' = fechas,
                      'diagnostico'= unlist(diagnostico2), 'Sexo'=unlist(sexo), 'Porcentaje_tumoral'=unlist(porcentaje_tumoral), 'Calidad'=unlist(calidad))
     
     T2 <- data.frame('Número de chip' = chip2, 'Número de biopsia' = NB_values, 'Diagnóstico' = textoDiag, 
@@ -619,9 +629,9 @@ server <- function(input, output) {
       tabla_final_pato <<- editData(tabla_final_pato, info)
       replaceData(proxy2, tabla_final_pato, resetPaging = FALSE)
     })
-
     
-   
+    
+    
     
     observeEvent(input$subir, {
       path_to_mongod <- "C:\\Program Files\\MongoDB\\Server\\7.0\\bin\\mongod.exe"
@@ -654,7 +664,7 @@ server <- function(input, output) {
     })
     
     
-
+    
   })
   
   
@@ -673,7 +683,7 @@ shinyApp(ui = ui, server = server)
 #                min = 1,
 #                max = 50,
 #                value = 30),
-    
+
 #    tags$div(class="header", checked=NA,
 #             tags$p("Hipervinculo"),
 #             tags$a(href="https://www.ubu.es/", "Click Here!")
