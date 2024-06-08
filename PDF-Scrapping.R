@@ -1,10 +1,11 @@
-install.packages(c("pdftools", "tidyverse", "stringr", "readxl", "xlsx","openxlsx"))
+install.packages(c("pdftools", "tidyverse", "readxl", "xlsx", "mongolite", "rentrez", "shiny", "processx"))
 install.packages("DT", repos = "http://cran.us.r-project.org")
 install.packages("shinyFiles")
 install.packages("DBI", "RSQLite")
-install.packages("mongolite")
 install.packages("jsonlite")
-install.packages("rentrez")
+
+
+library(shiny)
 
 runApp("Shiny_App")
 
@@ -29,7 +30,7 @@ CarpetaInformes <- "INFORMES"
 CarpetaSalida <- "OUTPUT"
 CarpetaResultados <- "RESULTADOS"
 PathBase <- getwd()
-base_datos <- dbConnect(SQLite(), dbname = "TFG.sqlite")
+#base_datos <- dbConnect(SQLite(), dbname = "TFG.sqlite")
 
 LeerFicherosPDF <- function(ruta) {
   ficheros <- list.files(path = ruta, pattern = "\\.pdf$", full.names = TRUE, recursive = TRUE)
@@ -82,21 +83,29 @@ BuscarVariable <- function(lines, textoBuscar){
 }
 
 acotarTexto<-function(textoInicio, textoInicio2, linesTotal){
-  print(textoInicio)
   lines <- character()
   indices_inicio <- grep(textoInicio, linesTotal)
   indices_inicio2 <- grep(textoInicio2, linesTotal)
-  print(indices_inicio2)
-  indice_limite <- grep(textoLimite, linesTotal)
+  indice_limite <- grep(textoLimite, linesTotal)[1]
   indice_limite2 <- grep(textoLimite2, linesTotal)
+  print(indices_inicio)
+  print(indices_inicio2)
+  print(indice_limite)
+  print(indice_limite2)
   if (length(indices_inicio2) != 0 | length(indices_inicio)>1){
-    if (length(indice_limite2) != 0){
+    if (length(indices_inicio2) != 0 && length(indices_inicio) != 0){
+      lines <- linesTotal[(indices_inicio + 1):(indices_inicio2 - 1)]
+    }else if (length(indice_limite2) != 0 && length(indices_inicio)!=0){
       lines <- linesTotal[(indices_inicio + 1):(indice_limite2[1] - 1)]
+    }else if (length(indices_inicio2) != 0){
+      lines <- linesTotal[(indices_inicio2 + 1):(indice_limite - 1)]
     }else{
-      lines <- linesTotal[(indices_inicio + 1):(indice_limite[2] - 1)]
+      lines <- linesTotal[(indices_inicio + 1):(indice_limite - 1)]
     }
-  }else{
-    lines <- linesTotal[(indices_inicio + 1):(indice_limite[1] - 1)]
+  }else if (length(indices_inicio2) == 0 && length(indices_inicio) == 0){
+    lines <- c(lines, "Sin biomarcadores")
+  }else {
+    lines <- linesTotal[(indices_inicio + 1):(indice_limite - 1)]
   }
   return(lines)
 }
@@ -131,7 +140,7 @@ P <- "2"
 
 patron <- "(\\d+)\\s* Ensayos clínicos"
 patron2 <- "(\\d+)\\s* Tratamientos disponibles"
-patron_frecuencia <- "\\d{2}\\.\\d{2}"
+patron_frecuencia <- "\\d{2}\\.\\d{2}\\%"
 patron_cambio <-"\\(.*?\\)"
 patron_codificacion <- "c\\.[0-9]+[A-Za-z>_]+"
 
@@ -142,7 +151,7 @@ patron_calidad <- ".*CALIDAD DE LA MUESTRA /LIMITACIONES PARA SU ANÁLISIS:\\s"
 
 textoInicio<- "Variantes de secuencia de ADN"
 textoInicio2<-"   Variaciones del número de copias"
-textoLimite <- "1 Basado en la versión ClinVar"
+textoLimite <- "Genes analizados"
 textoLimite2 <-"Comentarios adicionales sobre las variantes"
 
 for (ficheroPDF in ficheros){
@@ -165,14 +174,19 @@ for (ficheroPDF in ficheros) {
 textoDiag <- sapply(texto_Data, function(x) unique(x)[1])
 
 for (diagnostico in textoDiag) {
-  valor <- diagnosticos_dic[[diagnostico]]
-  numeroDiag <- c(numeroDiag, valor)
+  if (diagnostico %in% names(diagnosticos_dic)){
+    valor <- diagnosticos_dic[[diagnostico]]
+    numeroDiag <- c(numeroDiag, valor)
+  }
+  else{
+    numeroDiag <- c(numeroDiag, " ")
+  }
 }
 
 NHC <- sapply(NHC_Data, function(x) unique(x)[1])
 
 lista_resultante <- lapply(Nbiopsia_Data, function(sublist) {
-  sublist_sin_duplicados <- sublist[!duplicated(sublist)]
+  sublist_sin_duplicados <- sublist[1]
   sublist_sin_duplicados
 })
 
@@ -226,15 +240,16 @@ chip2 <- gsub(".*?([0-9]+\\.[0-9]+).*", "\\1", pdf_files)
 cod_totales <- frecuencias_totales <-patogenicidad_ordenadas<- genes_mut_ordenados <- frecuencias_totales2 <- genes_mut_ordenados2 <-list()
 
 for (ficheroPDF in ficheros) {
-  #print(ficheroPDF)
   linesTotal <- LeerDocumento(ficheroPDF)
   lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
   posiciones <- mutaciones_patogenicas <- lista_frec <- mutaciones_pdf <- patogenicidad <- lista_cod <- c()
   lines_divididas <- strsplit(lines, "\\s+")
   print(lines)
+  pos = 0
   for (line in lines_divididas){
-    if (length(grep(line[1], mutaciones))==1){
-      posiciones <- c(posiciones, grep(line[1], lines))
+    pos = pos+1
+    if (line[1] %in% mutaciones){
+      posiciones <- c(posiciones, pos)
       mutaciones_pdf <- c(mutaciones_pdf, line[1])
       for (i in strsplit(line, " ")) {
         resultado <- str_match(i, patron_frecuencia)
@@ -250,17 +265,19 @@ for (ficheroPDF in ficheros) {
       }
     }
   }
-  for (pos in seq(1, length(posiciones))){
-    if (pos == length(posiciones)){
-      if (length(grep("pathogenicity", lines[posiciones[pos]:length(lines)])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:length(lines)])) == 1){
+  if (length(posiciones) !=0){
+    for (pos in seq(1, length(posiciones))){
+      if (pos == length(posiciones)){
+        if (length(grep("pathogenicity", lines[posiciones[pos]:length(lines)])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:length(lines)])) == 1){
+          patogenicidad <- c(patogenicidad, "Pathogenic")
+        } else{
+          patogenicidad <- c(patogenicidad, " ")
+        }
+      } else if(length(grep("pathogenicity", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1){
         patogenicidad <- c(patogenicidad, "Pathogenic")
-      } else{
+      }else{
         patogenicidad <- c(patogenicidad, " ")
       }
-    } else if(length(grep("pathogenicity", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1){
-      patogenicidad <- c(patogenicidad, "Pathogenic")
-    }else{
-      patogenicidad <- c(patogenicidad, " ")
     }
   }
   genes_mut_ordenados <- c(genes_mut_ordenados, list(mutaciones_pdf))
@@ -276,12 +293,12 @@ patogenicidad_buscadas <- c()
 for (lista in seq_along(patogenicidad_ordenadas)){
   patogenicidad <- c()
   for (elemento in seq_along(patogenicidad_ordenadas[[lista]])){
+    print(genes_mut_ordenados[[lista]][[elemento]])
     gen = paste(genes_mut_ordenados[[lista]][[elemento]], "[gene]", cod_totales[[lista]][[elemento]])
     res <- entrez_search(db = "clinvar", term = gen)
     if (length(res$ids)!=0){
-      esums <- entrez_summary(db = "clinvar", id = res$ids)
+      esums <- entrez_summary(db = "clinvar", id = res$ids[1])
       resumen <- extract_from_esummary(esums, "germline_classification")
-      print(genes_mut_ordenados[[lista]][[elemento]])
       patogenicidad <- c(patogenicidad, resumen$description)
     }
     else{
@@ -372,41 +389,43 @@ for (ficheroPDF in ficheros) {
   cambiosPato<- append(cambiosPato, list(unlist(lista_cambio)))
 }
 
-for (ficheroPDF in ficheros) {
-  nombreFichero <- file.path(ficheroPDF)
-  linesTotal <- LeerDocumento(nombreFichero)
-  genpato2 <- list()
-  inicio <- FALSE
-  lines <- character()
-  for (line in linesTotal){
-    if (grepl(textoInicio, line) | grepl(textoInicio2, line)){
-      inicio <- TRUE
-    }else if (grepl(textoLimite, line) ){
-      inicio <- FALSE
-    }
-    if (grepl(textoLimite, line)==FALSE && inicio == TRUE){
-      lines <- c(lines,line)
-    }
-  }
-  for (mutacion in mutaciones){
-    coincidencias <- character()
-    coincidencias <- grepl(mutacion, lines)
-    for (coincidencia in 1:length(coincidencias)){
-      if (coincidencias[coincidencia] == TRUE){
-        posicion <- coincidencia
-        
-        for (a in strsplit(lines[posicion], " ")[[1]]) {
-          if (grepl("Pathogeni", a)) {
-            genpato2 <- c(genpato2, mutacion)
-          }
-        }
-      }
-    }
-  }
-  
-  patogen[[ficheroPDF]] <- genpato2
-  mutaciones_pato <- append(mutaciones_pato, list(genpato2))
-}
+#mutaciones_pato<-c()
+#for (ficheroPDF in ficheros) {
+#  nombreFichero <- file.path(ficheroPDF)
+#  linesTotal <- LeerDocumento(nombreFichero)
+#  genpato2 <- list()
+#  inicio <- FALSE
+#  lines <- character()
+#  for (line in linesTotal){
+#    if (grepl(textoInicio, line) | grepl(textoInicio2, line)){
+#      inicio <- TRUE
+#    }else if (grepl(textoLimite, line) ){
+#      inicio <- FALSE
+#    }
+#    if (grepl(textoLimite, line)==FALSE && inicio == TRUE){
+#      lines <- c(lines,line)
+#    }
+#  }
+#  print(lines)
+#  for (mutacion in mutaciones){
+#    coincidencias <- character()
+#    coincidencias <- grepl(mutacion, lines)
+#    for (coincidencia in 1:length(coincidencias)){
+#      if (coincidencias[coincidencia] == TRUE){
+#        posicion <- coincidencia
+#        
+#        for (a in strsplit(lines[posicion], " ")[[1]]) {
+#          if (grepl("Pathogeni", a)) {
+#            genpato2 <- c(genpato2, mutacion)
+#          }
+#        }
+#      }
+#    }
+#  }
+#  
+#  patogen[[ficheroPDF]] <- genpato2
+#  mutaciones_pato <- append(mutaciones_pato, list(genpato2))
+#}
 
 for (i in mutaciones_pato) {
   valores <- sapply(i, function(gen) ifelse(is.null(mutaciones_dic[[gen]]), 0, mutaciones_dic[[gen]]))
@@ -558,8 +577,7 @@ print(length(resumen[[1]]))
 
 entrez_db_searchable(db = "Cbioportal")
 ##########################
-install.packages("processx")
-library(processx)
+
 library(mongolite)
 path_to_mongod <- "C:\\Program Files\\MongoDB\\Server\\7.0\\bin\\mongod.exe"
 db_path <- "C:\\data\\db"

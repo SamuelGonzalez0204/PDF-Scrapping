@@ -110,7 +110,7 @@ server <- function(input, output) {
     library(mongolite)
     library(processx)
     library(rentrez)
-    
+    library(DT)
     
     CarpetaEntrada <- "INPUT"
     CarpetaDatos <- "DATOS"
@@ -193,15 +193,18 @@ server <- function(input, output) {
       indice_limite <- grep(textoLimite, linesTotal)[1]
       indice_limite2 <- grep(textoLimite2, linesTotal)
       if (length(indices_inicio2) != 0 | length(indices_inicio)>1){
-        if (length(indice_limite2) != 0){
+        if (length(indices_inicio2) != 0 && length(indices_inicio) != 0){
+          lines <- linesTotal[(indices_inicio + 1):(indices_inicio2 - 1)]
+        }else if (length(indice_limite2) != 0 && length(indices_inicio)!=0){
           lines <- linesTotal[(indices_inicio + 1):(indice_limite2[1] - 1)]
-        }else{
+        }else if (length(indices_inicio2) != 0){
           lines <- linesTotal[(indices_inicio2 + 1):(indice_limite - 1)]
+        }else{
+          lines <- linesTotal[(indices_inicio + 1):(indice_limite - 1)]
         }
-      }
-      else if (length(indices_inicio2) == 0 && length(indices_inicio) == 0){
+      }else if (length(indices_inicio2) == 0 && length(indices_inicio) == 0){
         lines <- c(lines, "Sin biomarcadores")
-      }else{
+      }else {
         lines <- linesTotal[(indices_inicio + 1):(indice_limite - 1)]
       }
       return(lines)
@@ -238,7 +241,7 @@ server <- function(input, output) {
     
     patron <- "(\\d+)\\s* Ensayos clínicos"
     patron2 <- "(\\d+)\\s* Tratamientos disponibles"
-    patron_frecuencia <- "\\d{2}\\.\\d{2}"
+    patron_frecuencia <- "\\d{2}\\.\\d{2}\\%"
     patron_cambio <-"\\(.*?\\)"
     patron_codificacion <- "c\\.[0-9]+[A-Za-z>_]+"
     
@@ -354,10 +357,11 @@ server <- function(input, output) {
       lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
       posiciones <- mutaciones_patogenicas <- lista_frec <- mutaciones_pdf <- patogenicidad <- lista_cod <- c()
       lines_divididas <- strsplit(lines, "\\s+")
-      print(lines)
+      pos = 0
       for (line in lines_divididas){
-        if (length(grep(line[1], mutaciones))==1){
-          posiciones <- c(posiciones, grep(line[1], lines))
+        pos = pos+1
+        if (line[1] %in% mutaciones){
+          posiciones <- c(posiciones, pos)
           mutaciones_pdf <- c(mutaciones_pdf, line[1])
           for (i in strsplit(line, " ")) {
             resultado <- str_match(i, patron_frecuencia)
@@ -379,12 +383,12 @@ server <- function(input, output) {
             if (length(grep("pathogenicity", lines[posiciones[pos]:length(lines)])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:length(lines)])) == 1){
               patogenicidad <- c(patogenicidad, "Pathogenic")
             } else{
-              patogenicidad <- c(patogenicidad, " ")
+              patogenicidad <- c(patogenicidad, "Sin resultados")
             }
           } else if(length(grep("pathogenicity", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1 || length(grep("Pathogenic", lines[posiciones[pos]:posiciones[pos+1]-1])) == 1){
             patogenicidad <- c(patogenicidad, "Pathogenic")
           }else{
-            patogenicidad <- c(patogenicidad, " ")
+            patogenicidad <- c(patogenicidad, "Sin resultados")
           }
         }
       }
