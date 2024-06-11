@@ -1,6 +1,6 @@
 ![logo UBU](https://github.com/SamuelGonzalez0204/PDF-Scrapping/assets/154916568/a0f5f278-5f3a-4593-8eeb-359dd49c7681)
 
-# PDF-Scrapping
+# Clinical Report Scraping
 
 Autor: Samuel González Martín.
 
