@@ -8,9 +8,6 @@
 #
 
 # Define UI for application that draws a histogram
-
-library(shiny)
-library(DT)
 #library(shinyFiles)
 
 
@@ -106,7 +103,7 @@ server <- function(input, output) {
     library(tidyverse)
     library(stringr)
     library(readxl)
-    library(openxlsx)
+    #library(openxlsx)
     library(mongolite)
     library(processx)
     library(rentrez)
