@@ -10,6 +10,8 @@
 # Define UI for application that draws a histogram
 #library(shinyFiles)
 
+library(DT)
+library(shiny)
 
 ui <- fluidPage(
   tags$head(
@@ -107,7 +109,7 @@ server <- function(input, output) {
     library(mongolite)
     library(processx)
     library(rentrez)
-    library(DT)
+    
     
     CarpetaEntrada <- "INPUT"
     CarpetaDatos <- "DATOS"
