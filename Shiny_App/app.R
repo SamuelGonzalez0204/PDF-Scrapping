@@ -458,38 +458,38 @@ server <- function(input, output) {
       fusiones <- append(fusiones, list(variantes))
     }
     
+    fichero = 1
     for (ficheroPDF in ficheros) {
       lista_frec <- list()
       lista_cambio <- list()
       linesTotal <- LeerDocumento(ficheroPDF)
       lines <- acotarTexto(textoInicio, textoInicio2 ,linesTotal)
-      for (mutaciones in mutaciones_pato){
-        for (mutacion in mutaciones){
-          print(mutacion)
-          coincidencias <- character()
-          if (!is.null(mutacion)){
-            coincidencias <- grepl(mutacion, lines)
-            for (coincidencia in 1:length(coincidencias)){
-              if (coincidencias[coincidencia] == TRUE){
-                posicion <- coincidencia
-                
-                for (i in strsplit(lines[posicion], " ")[[1]]) {
-                  resultado <- str_match(i, patron_frecuencia)
-                  resultado2 <- str_match(i, patron_cambio)
-                  if (!is.na(resultado)) {
-                    frec <- resultado[1]
-                    lista_frec <- c(lista_frec, frec)
-                  }
-                  if (!is.na(resultado2)) {
-                    cambio <- resultado2[1]
-                    lista_cambio <- c(lista_cambio, cambio)
-                  }
+      for (mutacion in mutaciones_pato[[fichero]]){
+        print(mutacion)
+        coincidencias <- character()
+        if (!is.null(mutacion)){
+          coincidencias <- grepl(mutacion, lines)
+          for (coincidencia in 1:length(coincidencias)){
+            if (coincidencias[coincidencia] == TRUE){
+              posicion <- coincidencia
+              
+              for (i in strsplit(lines[posicion], " ")[[1]]) {
+                resultado <- str_match(i, patron_frecuencia)
+                resultado2 <- str_match(i, patron_cambio)
+                if (!is.na(resultado)) {
+                  frec <- resultado[1]
+                  lista_frec <- c(lista_frec, frec)
+                }
+                if (!is.na(resultado2)) {
+                  cambio <- resultado2[1]
+                  lista_cambio <- c(lista_cambio, cambio)
                 }
               }
             }
           }
         }
       }
+      fichero = fichero+1
       frecuenciasPato <- append(frecuenciasPato, list(unlist(lista_frec)))
       cambiosPato<- append(cambiosPato, list(unlist(lista_cambio)))
     }
@@ -591,7 +591,7 @@ server <- function(input, output) {
                       dom = 'Bfrtip',
                       buttons = list('copy', 'print', list(
                         extend = 'collection',
-                        buttons = c('csv', 'excel', 'pdf'),
+                        buttons = c('csv', 'excel'),
                         text = 'Download')
                       )
                     )
@@ -619,7 +619,7 @@ server <- function(input, output) {
                       dom = 'Bfrtip',
                       buttons = list('copy', 'print', list(
                         extend = 'collection',
-                        buttons = c('csv', 'excel', 'pdf'),
+                        buttons = c('csv', 'excel'),
                         text = 'Download')
                       )
                     )
